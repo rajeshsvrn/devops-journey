@@ -1,0 +1,47 @@
+{
+    "name": "devops-journey",
+    "version": "1.0.0",
+    "description": "End-to-end DevOps learning project with React, Node.js, and MongoDB",
+    "main": "index.js",
+    "scripts": {
+        "setup": "npm run setup:backend && npm run setup:frontend",
+        "setup:backend": "cd backend && npm install",
+        "setup:frontend": "cd frontend && npm install",
+        "dev": "npm run dev:backend & npm run dev:frontend",
+        "dev:backend": "cd backend && npm run dev",
+        "dev:frontend": "cd frontend && npm start",
+        "start": "npm run start:backend & npm run start:frontend",
+        "start:backend": "cd backend && npm start",
+        "start:frontend": "cd frontend && npm run build && serve -s frontend/build -l 3000",
+        "test": "npm run test:backend && npm run test:frontend",
+        "test:backend": "cd backend && npm test",
+        "test:frontend": "cd frontend && npm test -- --watchAll=false",
+        "build": "npm run build:frontend",
+        "build:frontend": "cd frontend && npm run build",
+        "lint": "npm run lint:backend && npm run lint:frontend",
+        "lint:backend": "cd backend && npm run lint",
+        "lint:frontend": "cd frontend && npm run lint",
+        "clean": "rm -rf node_modules backend/node_modules frontend/node_modules",
+        "reset": "npm run clean && npm run setup"
+    },
+    "keywords": [
+        "devops",
+        "react",
+        "nodejs",
+        "mongodb",
+        "express",
+        "full-stack",
+        "learning",
+        "tutorial"
+    ],
+    "author": "DevOps Journey Team",
+    "license": "MIT",
+    "devDependencies": {
+        "concurrently": "^8.2.0",
+        "serve": "^14.2.0"
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=8.0.0"
+    }
+}
