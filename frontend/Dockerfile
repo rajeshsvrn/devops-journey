@@ -24,6 +24,8 @@ RUN chown -R nodejs:nodejs /app
 # Switch to non-root user
 USER nodejs
 
+ENV HOST=0.0.0.0
+
 # Expose port
 EXPOSE 3000
 
