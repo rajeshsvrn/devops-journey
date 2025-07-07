@@ -3,25 +3,15 @@ version: '3.8'
 services:
   mongodb:
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-    volumes:
-      - mongodb_prod_data:/data/db
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-securepassword}
 
   backend:
     environment:
       NODE_ENV: production
-      MONGODB_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/devops-journey?authSource=admin
-      JWT_SECRET: ${JWT_SECRET}
-    ports:
-      - "5000:5000"
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-securepassword}@mongodb:27017/devops-journey?authSource=admin
 
   frontend:
     environment:
-      REACT_APP_API_URL: ${API_URL}
-    ports:
-      - "80:3000"
-
-volumes:
-  mongodb_prod_data:
-    driver: local
+      REACT_APP_API_URL: ${API_URL:-http://localhost:5000/api}
+      REACT_APP_ENV: production
