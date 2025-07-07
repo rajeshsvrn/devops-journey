@@ -30,4 +30,4 @@ ENV HOST=0.0.0.0
 EXPOSE 3000
 
 # Start the app
-CMD ["serve", "-s", "build", "-l", "http://0.0.0.0:3000"]
+CMD ["serve", "-s", "build", "-l", "3000"]
