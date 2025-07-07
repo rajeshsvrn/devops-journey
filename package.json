@@ -1,0 +1,16 @@
+{
+  "name": "devops-journey",
+  "version": "1.0.0",
+  "description": "Scalable three-tier application for DevOps learning",
+  "scripts": {
+    "dev": "docker-compose up -d",
+    "dev:logs": "docker-compose logs -f",
+    "prod": "docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d",
+    "stop": "docker-compose down",
+    "clean": "docker-compose down -v --rmi all",
+    "build": "docker-compose build",
+    "restart": "docker-compose restart",
+    "status": "docker-compose ps",
+    "health": "curl -s http://localhost:5000/health | jq ."
+  }
+}
