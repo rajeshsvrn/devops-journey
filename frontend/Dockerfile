@@ -1,15 +1,31 @@
-FROM node:18-alpine as build
+FROM node:18-alpine
+
 WORKDIR /app
+
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm ci
+
+# Copy source code
 COPY . .
+
+# Build the app
 RUN npm run build
 
-FROM nginx:alpine
-COPY --from=build /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-RUN addgroup -g 1001 -S nginx && adduser -S nginx -u 1001 -G nginx
-RUN chown -R nginx:nginx /usr/share/nginx/html
-USER nginx
+# Install serve to run the built app
+RUN npm install -g serve
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+
+# Change ownership
+RUN chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port
 EXPOSE 3000
-CMD ["nginx", "-g", "daemon off;"]
+
+# Start the app
+CMD ["serve", "-s", "build", "-l", "3000"]
