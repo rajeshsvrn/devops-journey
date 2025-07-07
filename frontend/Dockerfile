@@ -1,33 +1,29 @@
-FROM node:18-alpine
+# Stage 1: Build React app
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Install dependencies
 COPY package*.json ./
 RUN npm install
 
-# Copy source code
+# Copy the entire app
 COPY . .
 
-# Build the app
+# Build React app
 RUN npm run build
 
-# Install serve to run the built app
-RUN npm install -g serve
+# Stage 2: Serve it with Nginx
+FROM nginx:alpine
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+# Remove default nginx index
+RUN rm -rf /usr/share/nginx/html/*
 
-# Change ownership
-RUN chown -R nodejs:nodejs /app
+# Copy built React app from builder stage
+COPY --from=builder /app/build /usr/share/nginx/html
 
-# Switch to non-root user
-USER nodejs
+# Expose port 80
+EXPOSE 80
 
-ENV HOST=0.0.0.0
-
-# Expose port
-EXPOSE 3000
-
-# Start the app
-CMD ["serve", "-s", "build", "-l", "3000"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
