@@ -7,13 +7,15 @@ const PORT = 5000;
 app.use(cors());
 app.use(express.json());
 
+
+
 const USERS_FILE = './users.json';
 
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString(), database: 'mocked' });
 });
 
-app.post('/login', (req, res) => {
+app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     const users = JSON.parse(fs.readFileSync(USERS_FILE));
     const user = users.find(u => u.username === username && u.password === password);
@@ -24,7 +26,7 @@ app.post('/login', (req, res) => {
     }
 });
 
-app.post('/register', (req, res) => {
+app.post('/api/register', (req, res) => {
     const { username, email, password } = req.body;
     const users = JSON.parse(fs.readFileSync(USERS_FILE));
     if (users.find(u => u.username === username)) {
@@ -36,7 +38,7 @@ app.post('/register', (req, res) => {
     res.status(201).json({ user: newUser });
 });
 
-app.get('/users', (req, res) => {
+app.get('/api/users', (req, res) => {
     const users = JSON.parse(fs.readFileSync(USERS_FILE));
     res.json({ users });
 });
