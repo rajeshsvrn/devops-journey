@@ -7,23 +7,26 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Copy the entire app
+# Copy app source
 COPY . .
 
-# Build React app
+# Build the React app
 RUN npm run build
 
-# Stage 2: Serve it with Nginx
+# Stage 2: Serve with nginx
 FROM nginx:alpine
 
-# Remove default nginx index
+# Remove default index
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy built React app from builder stage
+# Copy built React app
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# Expose port 80
+# Copy custom nginx config if you have it
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose default nginx port
 EXPOSE 80
 
-# Start nginx
+# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
