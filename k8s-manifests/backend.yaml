@@ -13,6 +13,8 @@ spec:
       labels:
         app: backend
     spec:
+      imagePullSecrets:
+        - name: acr-token-auth
       containers:
         - name: backend
           image: devopsjourney.azurecr.io/devops-backend:v1 # Update with your image
