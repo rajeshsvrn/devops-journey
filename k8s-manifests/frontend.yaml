@@ -14,7 +14,7 @@ spec:
         app: frontend
     spec:
       imagePullSecrets:
-        - name: acr-token-auth # Ensure this secret exists for ACR authentication
+        - name: acr-admin-creds # Ensure this secret exists for ACR authentication
       containers:
         - name: frontend
           image: devopsjourney.azurecr.io/devops-frontend:v1 # Update with your image
