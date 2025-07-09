@@ -20,15 +20,31 @@ spec:
           image: devopsjourney.azurecr.io/devops-backend:v1 # Update with your image
           ports:
             - containerPort: 5000
+          # env:
+          #   - name: NODE_ENV
+          #     value: "development"
+          #   - name: MONGODB_URI
+          #     value: "mongodb://mongodb:27017/devops-app"
+          #   - name: JWT_SECRET
+          #     value: "your-secret-key" # We'll move this to secrets later
+          #   - name: PORT
+          #     value: "5000"
+
+          envFrom:
+            - configMapRef:
+              name: backend-config
           env:
-            - name: NODE_ENV
-              value: "development"
-            - name: MONGODB_URI
-              value: "mongodb://mongodb:27017/devops-app"
             - name: JWT_SECRET
-              value: "your-secret-key" # We'll move this to secrets later
-            - name: PORT
-              value: "5000"
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: JWT_SECRET
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: backend-secrets
+              key: MONGODB_URI
+
           # livenessProbe:
           #   httpGet:
           #     path: /health

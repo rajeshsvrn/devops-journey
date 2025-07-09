@@ -54,5 +54,5 @@ spec:
   ports:
     - port: 80
       targetPort: 80
-  type: NodePort
+  type: ClusterIP
   # NodePort will be assigned automatically (30000-32767)
