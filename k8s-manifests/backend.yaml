@@ -34,16 +34,16 @@ spec:
             - configMapRef:
               name: backend-config
           env:
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: backend-secrets
-                  key: JWT_SECRET
-            - name: MONGODB_URI
-              valueFrom:
-                secretKeyRef:
-                  name: backend-secrets
-                  key: MONGODB_URI
+          - name: JWT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: JWT_SECRET
+          - name: MONGODB_URI
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: MONGODB_URI
 
           # livenessProbe:
           #   httpGet:
