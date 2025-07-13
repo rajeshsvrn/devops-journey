@@ -5,8 +5,13 @@ metadata:
   namespace: dev
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - devopsprac.duckdns.org
+      secretName: devops-tls
   rules:
     - host: devopsprac.duckdns.org
       http:
