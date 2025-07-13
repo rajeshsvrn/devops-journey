@@ -1,0 +1,27 @@
+# Production Role - Read only in prod namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prod-read-only
+  namespace: prod
+rules:
+  - apiGroups: ["", "apps"]
+    resources: ["pods", "services", "deployments", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prod-read-only-binding
+  namespace: prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prod-read-only
+subjects:
+  - kind: ServiceAccount
+    name: prod-user
+    namespace: prod
