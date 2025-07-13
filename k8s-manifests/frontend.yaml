@@ -30,7 +30,7 @@ spec:
           emptyDir: {}
         - name: nginx-config
           configMap:
-            name: frontend-nginx-config
+            name: frontend-config
 
       imagePullSecrets:
         - name: acr-admin-creds
