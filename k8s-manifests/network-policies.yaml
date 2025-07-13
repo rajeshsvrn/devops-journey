@@ -1,3 +1,44 @@
+# Allow DNS resolution for all pods (must come first after default-deny)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: dev
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# Allow external HTTP/HTTPS traffic (for package managers, etc.)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-egress
+  namespace: dev
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+
+---
 # Allow frontend to communicate with backend
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -18,6 +59,7 @@ spec:
       ports:
         - protocol: TCP
           port: 5000
+
 ---
 # Allow backend to communicate with MongoDB
 apiVersion: networking.k8s.io/v1
@@ -39,6 +81,7 @@ spec:
       ports:
         - protocol: TCP
           port: 27017
+
 ---
 # Allow ingress controller to reach frontend
 apiVersion: networking.k8s.io/v1
@@ -59,43 +102,4 @@ spec:
               name: ingress-nginx
       ports:
         - protocol: TCP
-          port: 8080
----
-# Allow DNS resolution for all pods
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-dns
-  namespace: dev
-spec:
-  podSelector: {}
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              name: kube-system
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
----
-# Allow all pods to reach external services (for image pulls, etc.)
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-external-egress
-  namespace: dev
-spec:
-  podSelector: {}
-  policyTypes:
-    - Egress
-  egress:
-    - to: []
-      ports:
-        - protocol: TCP
           port: 80
-        - protocol: TCP
-          port: 443
