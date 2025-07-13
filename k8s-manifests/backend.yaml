@@ -89,6 +89,10 @@ kind: Service
 metadata:
   name: backend
   namespace: dev
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5000" 
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: backend
