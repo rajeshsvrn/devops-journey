@@ -22,19 +22,19 @@ spec:
           type: RuntimeDefault
 
         volumeMounts:
-        # Essential nginx directories that need write access
-        - name: nginx-cache
-          mountPath: /var/cache/nginx
-        - name: nginx-run
-          mountPath: /var/run
-        - name: tmp-volume
-          mountPath: /tmp
+          # Essential nginx directories that need write access
+          - name: nginx-cache
+            mountPath: /var/cache/nginx
+          - name: nginx-run
+            mountPath: /var/run
+          - name: tmp-volume
+            mountPath: /tmp
 
-# Custom nginx config (optional)
-        - name: nginx-config
-          mountPath: /etc/nginx/conf.d/default.conf
-          subPath: default.conf
-          readOnly: true          
+          # Custom nginx config (optional)
+          - name: nginx-config
+            mountPath: /etc/nginx/conf.d/default.conf
+            subPath: default.conf
+            readOnly: true
 
       imagePullSecrets:
         - name: acr-admin-creds # Ensure this secret exists for ACR authentication
@@ -77,16 +77,15 @@ spec:
               cpu: "100m"
 
       volumes:
-      - name: nginx-cache
-        emptyDir: {}
-      - name: nginx-run
-        emptyDir: {}
-      - name: tmp-volume
-        emptyDir: {}
-      - name: nginx-config
-        configMap:
-          name: frontend-nginx-config
-
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: tmp-volume
+          emptyDir: {}
+        - name: nginx-config
+          configMap:
+            name: frontend-nginx-config
 
       serviceAccountName: frontend-sa
 ---
