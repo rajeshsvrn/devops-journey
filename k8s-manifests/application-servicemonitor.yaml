@@ -1,0 +1,56 @@
+
+# Service Monitor for Backend API
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-monitor
+  namespace: dev
+  labels:
+    app: backend
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+    scheme: http
+---
+# Service Monitor for Frontend
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: frontend-monitor
+  namespace: dev
+  labels:
+    app: frontend
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+    scheme: http
+---
+# Service Monitor for MongoDB
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mongodb-monitor
+  namespace: dev
+  labels:
+    app: mongodb
+spec:
+  selector:
+    matchLabels:
+      app: mongodb
+  endpoints:
+  - port: mongodb
+    interval: 30s
+    path: /metrics
+    scheme: http
+
+# kubectl apply -f application-servicemonitor.yaml
