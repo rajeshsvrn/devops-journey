@@ -21,6 +21,12 @@ spec:
         seccompProfile:
           type: RuntimeDefault
 
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-tmp
+          emptyDir: {}
+
       imagePullSecrets:
         - name: acr-admin-creds # Ensure this secret exists for ACR authentication
       containers:
@@ -31,7 +37,7 @@ spec:
 
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             runAsNonRoot: true
             runAsUser: 101
             runAsGroup: 101
