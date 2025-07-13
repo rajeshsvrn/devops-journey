@@ -12,7 +12,16 @@ spec:
     metadata:
       labels:
         app: mongodb
+
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+
       containers:
         - name: mongodb
           image: mongo:6.0
@@ -21,6 +30,17 @@ spec:
           env:
             - name: MONGO_INITDB_DATABASE
               value: "devops-app"
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false # MongoDB needs to write to /tmp
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            capabilities:
+              drop:
+                - ALL
+
           volumeMounts:
             - name: mongodb-storage
               mountPath: /data/db
@@ -34,3 +54,4 @@ spec:
       volumes:
         - name: mongodb-storage
           emptyDir: {} # Simple empty directory, data lost on pod restart
+      serviceAccountName: mongodb-sa

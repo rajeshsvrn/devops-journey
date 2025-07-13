@@ -13,6 +13,14 @@ spec:
       labels:
         app: backend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
       imagePullSecrets:
         - name: acr-admin-creds
       containers:
@@ -45,6 +53,16 @@ spec:
                   name: backend-secrets
                   key: MONGODB_URI
 
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            capabilities:
+              drop:
+                - ALL
+
           # livenessProbe:
           #   httpGet:
           #     path: /health
@@ -64,6 +82,7 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "200m"
+      serviceAccountName: backend-sa              
 ---
 apiVersion: v1
 kind: Service

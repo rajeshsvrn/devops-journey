@@ -13,6 +13,14 @@ spec:
       labels:
         app: frontend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+
       imagePullSecrets:
         - name: acr-admin-creds # Ensure this secret exists for ACR authentication
       containers:
@@ -20,6 +28,16 @@ spec:
           image: devopsjourney.azurecr.io/devops-frontend:v4 # Update with your image
           ports:
             - containerPort: 80
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: REACT_APP_API_URL
               value: "http://backend:5000/api"
@@ -42,6 +60,8 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "100m"
+
+      serviceAccountName: frontend-sa
 ---
 apiVersion: v1
 kind: Service
