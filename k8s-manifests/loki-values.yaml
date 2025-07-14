@@ -17,7 +17,7 @@ loki:
             prefix: index_
             period: 24h
   persistence:
-    enabled: true
+    enabled: false # Disable persistence for Loki
     storageClassName: "standard" # Change if needed
     size: 50Gi
   resources:
