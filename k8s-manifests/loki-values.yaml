@@ -1,9 +1,30 @@
-# loki-simple-values.yaml
+# loki-no-readonly.yaml
 loki:
   enabled: true
   
-  # No persistence - use memory/temp storage
+  # Override security context to allow writing
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+  
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false  # DISABLE read-only filesystem
+    capabilities:
+      drop:
+        - ALL
+  
+  persistence:
+    enabled: false
+  
+  # Simple config that uses default paths
   config:
+    auth_enabled: false
+    server:
+      http_listen_port: 3100
+    
     schema_config:
       configs:
         - from: 2020-10-24
@@ -13,6 +34,7 @@ loki:
           index:
             prefix: index_
             period: 24h
+    
     storage_config:
       boltdb_shipper:
         active_index_directory: /loki/boltdb-shipper-active
@@ -20,25 +42,15 @@ loki:
         shared_store: filesystem
       filesystem:
         directory: /loki/chunks
+    
     limits_config:
-      retention_period: 24h  # Keep logs for 1 day only
-      ingestion_rate_mb: 16
-      ingestion_burst_size_mb: 32
-  
-  # No persistence
-  persistence:
-    enabled: false
-  
-  resources:
-    requests:
-      memory: 256Mi
-      cpu: 100m
-    limits:
-      memory: 512Mi
-      cpu: 200m
+      retention_period: 24h
 
 promtail:
   enabled: true
+
+grafana:
+  enabled: false
   
   # Promtail configuration
   config:
