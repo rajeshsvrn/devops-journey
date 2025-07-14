@@ -4,7 +4,7 @@ loki:
       boltdb_shipper:
         active_index_directory: /loki/boltdb-shipper-active
         cache_location: /loki/boltdb-shipper-cache
-        shared_store: filesystem
+        shared_store: filesystem # For production, use S3/GCS
       filesystem:
         directory: /loki/chunks
     schema_config:
@@ -18,8 +18,8 @@ loki:
             period: 24h
   persistence:
     enabled: true
+    storageClassName: "standard" # Change if needed
     size: 50Gi
-    storageClassName: "standard"
   resources:
     requests:
       memory: 1Gi
@@ -30,24 +30,15 @@ loki:
 
 promtail:
   enabled: true
-  resources:
-    requests:
-      memory: 128Mi
-      cpu: 100m
-    limits:
-      memory: 256Mi
-      cpu: 200m
   config:
     logLevel: info
     serverPort: 3101
     clients:
       - url: http://loki:3100/loki/api/v1/push
-
-grafana:
-  enabled: false # We already have Grafana from Prometheus stack
-
-fluent-bit:
-  enabled: false
-
-filebeat:
-  enabled: false
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
