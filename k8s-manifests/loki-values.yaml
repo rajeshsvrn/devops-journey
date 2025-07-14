@@ -1,4 +1,11 @@
-loki:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-values
+  namespace: monitoring
+data:
+  loki-values.yaml: |
+    loki:
       config:
         storage_config:
           boltdb_shipper:
@@ -42,3 +49,12 @@ loki:
         serverPort: 3101
         clients:
           - url: http://loki:3100/loki/api/v1/push
+
+    grafana:
+      enabled: false
+
+    fluent-bit:
+      enabled: false
+
+    filebeat:
+      enabled: false
