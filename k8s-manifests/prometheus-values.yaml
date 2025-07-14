@@ -1,69 +1,60 @@
-# prometheus-values.yaml
+# simple-prometheus-values.yaml
 prometheus:
   prometheusSpec:
-    storageSpec:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: "standard" # Change if needed
-          accessModes: ["ReadWriteOnce"]
-          resources:
-            requests:
-              storage: 50Gi
-    retention: 30d
-    retentionSize: 45GB
+    retention: 7d
     resources:
       requests:
+        memory: 1Gi
+        cpu: 500m
+      limits:
         memory: 2Gi
         cpu: 1000m
-      limits:
-        memory: 4Gi
-        cpu: 2000m
+    # No persistent storage - uses emptyDir
+    storageSpec: {}
 
 grafana:
   enabled: true
-  adminPassword: "StrongPassword@123" # Change this!
+  adminPassword: "admin123"
+  
+  # Expose Grafana via NodePort
+  service:
+    type: NodePort
+    nodePort: 32000  # Fixed port for easy access
+  
+  # No persistence for simplicity
   persistence:
-    enabled: false # Disable persistence for Grafana
-    storageClassName: "standard" # Change if needed
-    size: 10Gi
+    enabled: false
+  
   resources:
     requests:
-      memory: 512Mi
-      cpu: 200m
+      memory: 128Mi
+      cpu: 100m
     limits:
-      memory: 1Gi
-      cpu: 500m
+      memory: 256Mi
+      cpu: 200m
 
+# Disable AlertManager
 alertmanager:
-  enabled: true
-  alertmanagerSpec:
-    storage:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: "standard" # Change if needed
-          accessModes: ["ReadWriteOnce"]
-          resources:
-            requests:
-              storage: 10Gi
-    resources:
-      requests:
-        memory: 512Mi
-        cpu: 200m
-      limits:
-        memory: 1Gi
-        cpu: 500m
+  enabled: false
 
+# Keep basic exporters for metrics
 nodeExporter:
   enabled: true
 
 kubeStateMetrics:
   enabled: true
 
+# Disable default rules and alerts
+defaultRules:
+  create: false
+
+# Keep Prometheus Operator but minimal
 prometheusOperator:
+  enabled: true
   resources:
     requests:
-      memory: 512Mi
-      cpu: 200m
+      memory: 128Mi
+      cpu: 100m
     limits:
-      memory: 1Gi
-      cpu: 500m
+      memory: 256Mi
+      cpu: 200m
