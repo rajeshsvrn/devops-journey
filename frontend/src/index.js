@@ -4,7 +4,7 @@ import App from './App';
 import './index.css';
 
 
-import './jaeger-tracing'; // Import the tracing configuration
+import '../jaeger-tracing'; // Import the tracing configuration
 
 // Rest of your app initialization
 ReactDOM.render(<App />, document.getElementById('root'));
