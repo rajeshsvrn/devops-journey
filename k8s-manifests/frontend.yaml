@@ -21,37 +21,14 @@ spec:
         seccompProfile:
           type: RuntimeDefault
 
-      volumes:
-        - name: nginx-cache
-          emptyDir: {}
-        - name: nginx-run
-          emptyDir: {}
-        - name: tmp-volume
-          emptyDir: {}
-        - name: nginx-config
-          configMap:
-            name: frontend-config
-
       imagePullSecrets:
-        - name: acr-admin-creds
+        - name: acr-admin-creds # Ensure this secret exists for ACR authentication
       containers:
         - name: frontend
-          image: devopsjourney.azurecr.io/devops-frontend:v4
+          image: devopsjourney.azurecr.io/devops-frontend:v4 # Update with your image
           ports:
             - containerPort: 80
-          volumeMounts:
-            # Essential nginx directories that need write access
-            - name: nginx-cache
-              mountPath: /var/cache/nginx
-            - name: nginx-run
-              mountPath: /var/run
-            - name: tmp-volume
-              mountPath: /tmp
-            # Custom nginx config (optional)
-            - name: nginx-config
-              mountPath: /etc/nginx/conf.d/default.conf
-              subPath: default.conf
-              readOnly: true
+
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
