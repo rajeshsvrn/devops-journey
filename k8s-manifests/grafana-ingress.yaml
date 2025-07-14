@@ -11,10 +11,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - grafana.duckdns.org # Replace with your DuckDNS domain
+        - granfana.duckdns.org # Replace with your DuckDNS domain
       secretName: grafana-tls
   rules:
-    - host: grafana.duckdns.org # Replace with your DuckDNS domain
+    - host: granfana.duckdns.org # Replace with your DuckDNS domain
       http:
         paths:
           - path: /
