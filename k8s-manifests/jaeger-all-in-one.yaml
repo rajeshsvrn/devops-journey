@@ -19,7 +19,26 @@ spec:
     type: memory
   ingress:
     enabled: true
-  service:
-    type: NodePort
-    ports:
-      query: 32086  # Jaeger UI port
+  # Service configuration moved to a separate Service manifest
+
+---
+# jaeger-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-all-in-one
+  namespace: monitoring
+  labels:
+    app: jaeger
+    app.kubernetes.io/component: all-in-one
+spec:
+  type: NodePort
+  ports:
+    - name: http-query
+      port: 16686
+      targetPort: 16686
+      nodePort: 32086
+  selector:
+    app: jaeger
+    app.kubernetes.io/component: all-in-one
+    app.kubernetes.io/instance: jaeger-all-in-one
