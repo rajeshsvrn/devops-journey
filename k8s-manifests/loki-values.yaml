@@ -1,0 +1,128 @@
+# loki-simple-values.yaml
+loki:
+  enabled: true
+  
+  # No persistence - use memory/temp storage
+  config:
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: boltdb-shipper
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 24h
+    storage_config:
+      boltdb_shipper:
+        active_index_directory: /loki/boltdb-shipper-active
+        cache_location: /loki/boltdb-shipper-cache
+        shared_store: filesystem
+      filesystem:
+        directory: /loki/chunks
+    limits_config:
+      retention_period: 24h  # Keep logs for 1 day only
+      ingestion_rate_mb: 16
+      ingestion_burst_size_mb: 32
+  
+  # No persistence
+  persistence:
+    enabled: false
+  
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+
+promtail:
+  enabled: true
+  
+  # Promtail configuration
+  config:
+    logLevel: info
+    serverPort: 3101
+    clients:
+      - url: http://loki:3100/loki/api/v1/push
+    
+    positions:
+      filename: /tmp/positions.yaml
+    
+    scrape_configs:
+      # Collect logs from all pods in dev namespace
+      - job_name: kubernetes-pods-dev
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["dev"]
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: pod
+          - source_labels:
+              - __meta_kubernetes_pod_container_name
+            target_label: container
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: namespace
+          - source_labels:
+              - __meta_kubernetes_pod_label_app
+            target_label: app
+          - replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_uid
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__
+      
+      # Collect logs from all pods in monitoring namespace
+      - job_name: kubernetes-pods-monitoring
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ["monitoring"]
+        relabel_configs:
+          - source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: pod
+          - source_labels:
+              - __meta_kubernetes_pod_container_name
+            target_label: container
+          - source_labels:
+              - __meta_kubernetes_namespace
+            target_label: namespace
+          - source_labels:
+              - __meta_kubernetes_pod_label_app
+            target_label: app
+          - replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_uid
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__
+
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 256Mi
+      cpu: 200m
+
+# Disable other components we don't need
+grafana:
+  enabled: false  # We already have Grafana from Prometheus stack
+
+fluent-bit:
+  enabled: false
+
+filebeat:
+  enabled: false
+
+logstash:
+  enabled: false
+
+tableau:
+  enabled: false
