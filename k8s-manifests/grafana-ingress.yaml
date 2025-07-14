@@ -5,12 +5,10 @@ metadata:
   namespace: monitoring
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
   rules:
-    - host: granfana.duckdns.org # Replace with your DuckDNS domain
+    - host: granfana.duckdns.org
       http:
         paths:
           - path: /
@@ -19,4 +17,4 @@ spec:
               service:
                 name: prometheus-grafana
                 port:
-                  number: 80 # Default Grafana port
+                  number: 80
