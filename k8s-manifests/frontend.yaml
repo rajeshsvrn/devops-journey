@@ -25,7 +25,7 @@ spec:
         - name: acr-admin-creds # Ensure this secret exists for ACR authentication
       containers:
         - name: frontend
-          image: devopsjourney.azurecr.io/devops-frontend:v6 # Update with your image
+          image: devopsjourney.azurecr.io/devops-frontend:v7 # Update with your image
           ports:
             - containerPort: 80
 
