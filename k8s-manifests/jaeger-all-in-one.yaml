@@ -1,0 +1,25 @@
+# jaeger-all-in-one.yaml
+apiVersion: jaegertracing.io/v1
+kind: Jaeger
+metadata:
+  name: jaeger-all-in-one
+  namespace: monitoring
+spec:
+  strategy: allInOne
+  allInOne:
+    image: jaegertracing/all-in-one:1.52.0
+    options:
+      memory:
+        max-traces: 100000
+    resources:
+      limits:
+        memory: 512Mi
+        cpu: 500m
+  storage:
+    type: memory
+  ingress:
+    enabled: true
+  service:
+    type: NodePort
+    ports:
+      query: 32086  # Jaeger UI port
