@@ -15,16 +15,18 @@ prometheus:
 grafana:
   enabled: true
   adminPassword: "admin123"
-  
+
   # Expose Grafana via NodePort
   service:
     type: NodePort
-    nodePort: 32000  # Fixed port for easy access
-  
+    nodePort: 32000
+    port: 80
+    targetPort: 3000
+
   # No persistence for simplicity
   persistence:
     enabled: false
-  
+
   resources:
     requests:
       memory: 128Mi
