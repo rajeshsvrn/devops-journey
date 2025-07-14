@@ -30,3 +30,21 @@ spec:
       default_strategy:
         type: probabilistic
         param: 1.0
+
+---
+# jaeger-nodeport.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-nodeport
+  namespace: monitoring
+spec:
+  type: NodePort
+  ports:
+    - name: query-http
+      port: 16686
+      targetPort: 16686
+      nodePort: 32086
+  selector:
+    app: jaeger
+    app.kubernetes.io/component: all-in-one
