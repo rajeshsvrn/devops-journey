@@ -23,4 +23,4 @@ spec:
               service:
                 name: prometheus-grafana
                 port:
-                  number: 8000 # Default Grafana port
+                  number: 80 # Default Grafana port
