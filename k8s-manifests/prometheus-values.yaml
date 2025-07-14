@@ -23,7 +23,7 @@ grafana:
   enabled: true
   adminPassword: "StrongPassword@123" # Change this!
   persistence:
-    enabled: true
+    enabled: false # Disable persistence for Grafana
     storageClassName: "standard" # Change if needed
     size: 10Gi
   resources:
