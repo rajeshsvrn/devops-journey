@@ -29,18 +29,30 @@ spec:
           ports:
             - containerPort: 80
 
-          # securityContext:
-          #   allowPrivilegeEscalation: false
-          #   readOnlyRootFilesystem: false
-          #   runAsNonRoot: true
-          #   runAsUser: 101
-          #   runAsGroup: 101
-          #   capabilities:
-          #     drop:
-          #       - ALL
           env:
             - name: REACT_APP_API_URL
               value: "http://backend:5000/api"
+            # Jaeger configuration (consistent with backend)
+            - name: JAEGER_SERVICE_NAME
+              value: "frontend-service"
+            - name: JAEGER_AGENT_HOST
+              value: "jaeger-agent.monitoring"
+            - name: JAEGER_AGENT_PORT
+              value: "6831"
+            - name: JAEGER_SAMPLER_TYPE
+              value: "const"
+            - name: JAEGER_SAMPLER_PARAM
+              value: "1"
+
+            # securityContext:
+            #   allowPrivilegeEscalation: false
+            #   readOnlyRootFilesystem: false
+            #   runAsNonRoot: true
+            #   runAsUser: 101
+            #   runAsGroup: 101
+            #   capabilities:
+            #     drop:
+            #       - ALL
           livenessProbe:
             httpGet:
               path: /
