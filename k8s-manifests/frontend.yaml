@@ -12,7 +12,7 @@ spec:
     metadata:
       labels:
         app: frontend
-      # spec:
+    spec:
       #   securityContext:
       #     runAsNonRoot: true
       #     runAsUser: 101
