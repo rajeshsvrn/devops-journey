@@ -9,10 +9,6 @@ metadata:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - granfana.duckdns.org # Replace with your DuckDNS domain
-      secretName: grafana-tls
   rules:
     - host: granfana.duckdns.org # Replace with your DuckDNS domain
       http:
