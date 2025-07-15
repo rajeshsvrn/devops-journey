@@ -158,14 +158,14 @@ frontend:
 mongodb:
   enabled: true
   name: mongodb
-  
+
   image:
     repository: "mongo"
     tag: "6.0"
     pullPolicy: IfNotPresent
-  
+
   replicaCount: 1
-  
+
   service:
     type: ClusterIP
     port: 27017
@@ -174,20 +174,20 @@ mongodb:
       prometheus.io/scrape: "true"
       prometheus.io/port: "27017"
       prometheus.io/path: "/metrics"
-  
+
   # Configuration
   config:
     database: "devops-app"
-  
+
   # Persistence configuration
   persistence:
-    enabled: false  # Currently using emptyDir like your dev setup
+    enabled: false # Currently using emptyDir like your dev setup
     # When enabled, will use PVC
     storageClass: "manual"
     size: "5Gi"
     reclaimPolicy: "Retain"
     hostPath: "/mnt/data/mongodb"
-  
+
   resources:
     requests:
       memory: "256Mi"
@@ -195,7 +195,7 @@ mongodb:
     limits:
       memory: "512Mi"
       cpu: "500m"
-  
+
   # Security context (from your current setup)
   securityContext:
     runAsNonRoot: true
@@ -204,17 +204,17 @@ mongodb:
     fsGroup: 999
     seccompProfile:
       type: RuntimeDefault
-  
+
   containerSecurityContext:
     allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: false  # MongoDB needs to write to /tmp
+    readOnlyRootFilesystem: false # MongoDB needs to write to /tmp
     runAsNonRoot: true
     runAsUser: 999
     runAsGroup: 999
     capabilities:
       drop:
         - ALL
-  
+
   # Service Account
   serviceAccount:
     name: mongodb-sa
@@ -228,7 +228,7 @@ ingress:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 
   hosts:
-    - host: "devopsprac.duckdns.org"
+    - host: "devraj.duckdns.org"
       paths:
         - path: "/api(/|$)(.*)"
           pathType: Prefix
@@ -239,7 +239,7 @@ ingress:
 
   tls:
     - hosts:
-        - "devopsprac.duckdns.org"
+        - "devraj.duckdns.org"
       secretName: "devops-tls"
 
 # Monitoring
