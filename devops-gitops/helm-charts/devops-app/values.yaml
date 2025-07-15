@@ -231,10 +231,10 @@ ingress:
     - host: "devraj.duckdns.org"
       paths:
         - path: "/api(/|$)(.*)"
-          pathType: Prefix
+          pathType: ImplementationSpecific
           backend: backend
         - path: "/(.*)"
-          pathType: Prefix
+          pathType: ImplementationSpecific
           backend: frontend
 
   tls:
