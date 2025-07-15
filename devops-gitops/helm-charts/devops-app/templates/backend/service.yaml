@@ -1,15 +1,19 @@
 {{- if .Values.backend.enabled }}
 apiVersion: v1
-kind: ConfigMap
+kind: Service
 metadata:
-  name: {{ .Values.backend.name }}-config
+  name: {{ .Values.backend.name }}
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "devops-app.labels" . | nindent 4 }}
     app.kubernetes.io/component: {{ .Values.backend.name }}
-data:
-  NODE_ENV: {{ .Values.backend.config.nodeEnv | quote }}
-  PORT: {{ .Values.backend.config.port | quote }}
-  DB_NAME: {{ .Values.backend.config.dbName | quote }}
-  LOG_LEVEL: {{ .Values.backend.config.logLevel | quote }}
+  annotations:
+    {{- toYaml .Values.backend.service.annotations | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.backend.name }}
+  ports:
+    - port: {{ .Values.backend.service.port }}
+      targetPort: {{ .Values.backend.service.targetPort }}
+  type: {{ .Values.backend.service.type }}
 {{- end }}
