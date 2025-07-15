@@ -1,0 +1,140 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default deny all traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "devops-app.fullname" . }}-default-deny-all
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Allow DNS resolution for all pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "devops-app.fullname" . }}-allow-dns
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: {{ .Values.networkPolicy.dnsNamespace | default "kube-system" }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+{{- if .Values.networkPolicy.allowExternalEgress }}
+# Allow external HTTP/HTTPS traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "devops-app.fullname" . }}-allow-external-egress
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+---
+{{- end }}
+{{- if and .Values.frontend.enabled .Values.backend.enabled }}
+# Allow frontend to communicate with backend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "devops-app.fullname" . }}-frontend-to-backend
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "devops-app.selectorLabels" . | nindent 6 }}
+      app: {{ .Values.backend.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "devops-app.selectorLabels" . | nindent 14 }}
+              app: {{ .Values.frontend.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.service.targetPort }}
+---
+{{- end }}
+{{- if and .Values.backend.enabled .Values.mongodb.enabled }}
+# Allow backend to communicate with MongoDB
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "devops-app.fullname" . }}-backend-to-mongodb
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "devops-app.selectorLabels" . | nindent 6 }}
+      app: {{ .Values.mongodb.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "devops-app.selectorLabels" . | nindent 14 }}
+              app: {{ .Values.backend.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.mongodb.service.targetPort }}
+---
+{{- end }}
+{{- if .Values.frontend.enabled }}
+# Allow ingress controller to reach frontend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "devops-app.fullname" . }}-ingress-to-frontend
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "devops-app.selectorLabels" . | nindent 6 }}
+      app: {{ .Values.frontend.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: {{ .Values.networkPolicy.ingressNamespace | default "ingress-nginx" }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.service.targetPort }}
+{{- end }}
+{{- end }}

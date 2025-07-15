@@ -247,3 +247,10 @@ monitoring:
   enabled: true
   serviceMonitor:
     enabled: falses"
+
+# Network Policy configuration
+networkPolicy:
+  enabled: false
+  dnsNamespace: "kube-system"
+  ingressNamespace: "ingress-nginx"
+  allowExternalEgress: true
