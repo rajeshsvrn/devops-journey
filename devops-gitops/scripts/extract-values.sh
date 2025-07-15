@@ -83,5 +83,4 @@ kubectl get deployment frontend -n dev -o jsonpath='{.spec.template.spec.contain
 
 # Clean up temp files
 rm -f /tmp/backend_image /tmp/backend_replicas /tmp/backend_port /tmp/frontend_image /tmp/frontend_replicas /tmp/frontend_port /tmp/mongodb_image /tmp/mongodb_storage /tmp/ingress_host
-EOF
 
