@@ -29,7 +29,7 @@ spec:
         - containerPort: {{ .Values.mongodb.service.targetPort }}
         env:
         - name: MONGO_INITDB_DATABASE
-          value: {{ .Values.mongodb.config.database }}
+          value: {{ .Values.mongodb.config.database | quote }}
         securityContext:
           {{- toYaml .Values.mongodb.containerSecurityContext | nindent 12 }}
         volumeMounts:

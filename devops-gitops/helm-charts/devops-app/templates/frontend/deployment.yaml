@@ -41,19 +41,19 @@ spec:
         - containerPort: {{ .Values.frontend.service.targetPort }}
         env:
         - name: REACT_APP_API_URL
-          value: {{ .Values.frontend.config.apiUrl }}
+          value: {{ .Values.frontend.config.apiUrl | quote }}
         {{- if .Values.frontend.jaeger.enabled }}
         # Jaeger configuration
         - name: JAEGER_SERVICE_NAME
-          value: {{ .Values.frontend.jaeger.serviceName }}
+          value: {{ .Values.frontend.jaeger.serviceName | quote }}
         - name: JAEGER_AGENT_HOST
-          value: {{ .Values.frontend.jaeger.agentHost }}
+          value: {{ .Values.frontend.jaeger.agentHost | quote }}
         - name: JAEGER_AGENT_PORT
-          value: {{ .Values.frontend.jaeger.agentPort }}
+          value: {{ .Values.frontend.jaeger.agentPort | quote }}
         - name: JAEGER_SAMPLER_TYPE
-          value: {{ .Values.frontend.jaeger.samplerType }}
+          value: {{ .Values.frontend.jaeger.samplerType | quote }}
         - name: JAEGER_SAMPLER_PARAM
-          value: {{ .Values.frontend.jaeger.samplerParam }}
+          value: {{ .Values.frontend.jaeger.samplerParam | quote }}
         {{- end }}
         livenessProbe:
           httpGet:
