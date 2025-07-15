@@ -1,0 +1,44 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "devops-app.fullname" . }}-grafana-datasources
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://{{ include "devops-app.fullname" . }}-prometheus:9090
+      isDefault: true
+    {{- if .Values.monitoring.loki.enabled }}
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://{{ include "devops-app.fullname" . }}-loki:3100
+    {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "devops-app.fullname" . }}-grafana-dashboards
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards
+{{- end }}

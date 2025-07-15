@@ -1,0 +1,119 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.loki.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "devops-app.fullname" . }}-loki
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: loki
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "devops-app.selectorLabels" . | nindent 6 }}
+      app: loki
+  template:
+    metadata:
+      labels:
+        {{- include "devops-app.selectorLabels" . | nindent 8 }}
+        app: loki
+    spec:
+      containers:
+      - name: loki
+        image: {{ .Values.monitoring.loki.image.repository }}:{{ .Values.monitoring.loki.image.tag }}
+        ports:
+        - containerPort: 3100
+        args:
+          - -config.file=/etc/loki/local-config.yaml
+        volumeMounts:
+        - name: loki-config
+          mountPath: /etc/loki
+        - name: loki-storage
+          mountPath: /loki
+        resources:
+          {{- toYaml .Values.monitoring.loki.resources | nindent 12 }}
+      volumes:
+      - name: loki-config
+        configMap:
+          name: {{ include "devops-app.fullname" . }}-loki-config
+      - name: loki-storage
+        {{- if .Values.monitoring.loki.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "devops-app.fullname" . }}-loki-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "devops-app.fullname" . }}-loki
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: loki
+spec:
+  ports:
+  - port: 3100
+    targetPort: 3100
+    name: http
+  selector:
+    {{- include "devops-app.selectorLabels" . | nindent 4 }}
+    app: loki
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "devops-app.fullname" . }}-loki-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+data:
+  local-config.yaml: |
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+
+    ingester:
+      lifecycler:
+        address: 127.0.0.1
+        ring:
+          kvstore:
+            store: inmemory
+          replication_factor: 1
+        final_sleep: 0s
+      chunk_idle_period: 5m
+      chunk_retain_period: 30s
+
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: boltdb-shipper
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 24h
+
+    storage_config:
+      boltdb_shipper:
+        active_index_directory: /loki/boltdb-shipper-active
+        cache_location: /loki/boltdb-shipper-cache
+        shared_store: filesystem
+      filesystem:
+        directory: /loki/chunks
+
+    limits_config:
+      enforce_metric_name: false
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+
+    chunk_store_config:
+      max_look_back_period: 0s
+
+    table_manager:
+      retention_deletes_enabled: false
+      retention_period: 0s
+{{- end }}
