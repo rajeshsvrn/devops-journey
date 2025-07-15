@@ -21,7 +21,6 @@ spec:
     spec:
       securityContext:
         {{- toYaml .Values.mongodb.securityContext | nindent 8 }}
-      serviceAccountName: {{ .Values.mongodb.serviceAccount.name }}
       containers:
       - name: {{ .Values.mongodb.name }}
         image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
