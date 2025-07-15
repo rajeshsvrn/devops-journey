@@ -1,0 +1,35 @@
+{{- if and .Values.mongodb.enabled .Values.mongodb.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.mongodb.name }}-pv
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.mongodb.name }}
+spec:
+  capacity:
+    storage: {{ .Values.mongodb.persistence.size }}
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: {{ .Values.mongodb.persistence.reclaimPolicy }}
+  storageClassName: {{ .Values.mongodb.persistence.storageClass }}
+  hostPath:
+    path: {{ .Values.mongodb.persistence.hostPath }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.mongodb.name }}-pvc
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.mongodb.name }}
+spec:
+  storageClassName: {{ .Values.mongodb.persistence.storageClass }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.mongodb.persistence.size }}
+{{- end }}

@@ -1,4 +1,3 @@
-# helm-charts/devops-app/templates/backend/configmap.yaml
 {{- if .Values.backend.enabled }}
 apiVersion: v1
 kind: ConfigMap
@@ -9,8 +8,12 @@ metadata:
     {{- include "devops-app.labels" . | nindent 4 }}
     app.kubernetes.io/component: {{ .Values.backend.name }}
 data:
-  NODE_ENV: {{ .Values.backend.config.nodeEnv }}
-  PORT: "{{ .Values.backend.config.port }}"
-  LOG_LEVEL: {{ .Values.backend.config.logLevel }}
-  # Add other config values as needed
+  NODE_ENV: {{ .Values.backend.config.nodeEnv | quote }}
+  PORT: {{ .Values.backend.config.port | quote }}
+  DB_NAME: {{ .Values.backend.config.dbName | quote }}
+  LOG_LEVEL: {{ .Values.backend.config.logLevel | quote }}
+  # MongoDB connection (non-sensitive part)
+  MONGODB_HOST: {{ .Values.mongodb.name | quote }}
+  MONGODB_PORT: {{ .Values.mongodb.service.port | quote }}
+  MONGODB_DATABASE: {{ .Values.mongodb.config.database | quote }}
 {{- end }}

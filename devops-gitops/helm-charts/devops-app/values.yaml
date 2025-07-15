@@ -1,26 +1,29 @@
 # Global configuration
 global:
   namespace: develop
-  imageRegistry: "devopsjourney.azurecr.io/devops-backend:v7" # Update to your actual registry
-  imageTag: "latest"
-  environment: dev
+  imageRegistry: "devopsjourney.azurecr.io"
+  imageTag: "latest" # Will be overridden by specific tags
+  environment: develop
+
+  # Image pull secrets for ACR
+  imagePullSecrets:
+    - name: acr-admin-creds
 
   # Standard labels
   labels:
     app.kubernetes.io/name: devops-app
     app.kubernetes.io/part-of: enterprise-platform
     app.kubernetes.io/managed-by: helm
-    environment: dev
+    environment: develop
 
-# Backend configuration (from your backend.yaml)
+# Backend configuration (from your existing backend deployment)
 backend:
   enabled: true
   name: backend
 
   image:
-    repository: "devopsjourney.azurecr.io/devops-backend"
-    # Extract repo name from full image path
-    tag: "v7"
+    repository: "devops-backend"
+    tag: "v8" # Your current version
     pullPolicy: IfNotPresent
 
   replicaCount: 2
@@ -29,27 +32,49 @@ backend:
     type: ClusterIP
     port: 5000
     targetPort: 5000
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "5000"
+      prometheus.io/path: "/metrics"
 
   resources:
     requests:
-      memory: 128Mi
-      cpu: 100m
+      memory: "128Mi"
+      cpu: "100m"
     limits:
       memory: "256Mi"
       cpu: "200m"
 
-  # Configuration from your configmap
+  # Configuration from your ConfigMap
   config:
     nodeEnv: "development"
-    port: 5000
+    port: "5000"
+    dbName: "devops-app"
     logLevel: "info"
 
-  # Security context (from your secure deployments)
+  # Jaeger tracing configuration
+  jaeger:
+    enabled: true
+    serviceName: "backend-service"
+    agentHost: "jaeger-agent.monitoring.svc.cluster.local"
+    agentPort: "6831"
+    samplerType: "const"
+    samplerParam: "1"
+
+  # Secrets configuration
+  secrets:
+    enabled: true
+    jwtSecretKey: "JWT_SECRET"
+    mongoUriKey: "MONGODB_URI"
+
+  # Security context
   securityContext:
     runAsNonRoot: true
     runAsUser: 1000
     runAsGroup: 1000
     fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
 
   containerSecurityContext:
     allowPrivilegeEscalation: false
@@ -58,14 +83,18 @@ backend:
       drop:
         - ALL
 
+  # Service Account
+  serviceAccount:
+    name: backend-sa
+
 # Frontend configuration (from your frontend.yaml)
 frontend:
   enabled: true
   name: frontend
 
   image:
-    repository: "devopsjourney.azurecr.io/devops-frontend"
-    tag: "v10"
+    repository: "devops-frontend"
+    tag: "v10" # Your current version
     pullPolicy: IfNotPresent
 
   replicaCount: 2
@@ -74,6 +103,10 @@ frontend:
     type: ClusterIP
     port: 80
     targetPort: 80
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "80"
+      prometheus.io/path: "/metrics"
 
   resources:
     requests:
@@ -83,38 +116,78 @@ frontend:
       memory: "128Mi"
       cpu: "100m"
 
+  # Configuration
+  config:
+    apiUrl: "http://backend:5000/api"
+
+  # Jaeger tracing configuration
+  jaeger:
+    enabled: true
+    serviceName: "frontend-service"
+    agentHost: "jaeger-agent.monitoring"
+    agentPort: "6831"
+    samplerType: "const"
+    samplerParam: "1"
+
+  # Custom nginx configuration
+  customNginxConfig: true
+
+  # Health checks
+  healthCheck:
+    livenessPath: "/"
+    readinessPath: "/"
+    initialDelaySeconds: 30
+    readinessInitialDelay: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # Security context (currently disabled in your manifest)
   securityContext:
+    enabled: false # Set to true when ready
     runAsNonRoot: true
     runAsUser: 101
     runAsGroup: 101
     fsGroup: 101
 
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    capabilities:
-      drop:
-        - ALL
+  # Service Account
+  serviceAccount:
+    name: frontend-sa
 
 # MongoDB configuration (from your mongodb.yaml)
 mongodb:
   enabled: true
   name: mongodb
-
+  
   image:
     repository: "mongo"
     tag: "6.0"
     pullPolicy: IfNotPresent
-
+  
+  replicaCount: 1
+  
   service:
+    type: ClusterIP
     port: 27017
     targetPort: 27017
-
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "27017"
+      prometheus.io/path: "/metrics"
+  
+  # Configuration
+  config:
+    database: "devops-app"
+  
+  # Persistence configuration
   persistence:
-    enabled: true
-    storageClass: "local-path" # Update based on your storage class
-    size: 5Gi
-
+    enabled: false  # Currently using emptyDir like your dev setup
+    # When enabled, will use PVC
+    storageClass: "manual"
+    size: "5Gi"
+    reclaimPolicy: "Retain"
+    hostPath: "/mnt/data/mongodb"
+  
   resources:
     requests:
       memory: "256Mi"
@@ -122,34 +195,55 @@ mongodb:
     limits:
       memory: "512Mi"
       cpu: "500m"
-
+  
+  # Security context (from your current setup)
   securityContext:
     runAsNonRoot: true
     runAsUser: 999
     runAsGroup: 999
     fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false  # MongoDB needs to write to /tmp
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    capabilities:
+      drop:
+        - ALL
+  
+  # Service Account
+  serviceAccount:
+    name: mongodb-sa
 
-# Ingress configuration (from your ingress.yaml)
+# Ingress configuration (from your existing ingress)
 ingress:
   enabled: true
   className: nginx
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false" # Simplified for dev
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 
   hosts:
     - host: "devopsprac.duckdns.org"
       paths:
-        - path: /
+        - path: "/api(/|$)(.*)"
           pathType: Prefix
-        - path: /api
+          backend: backend
+        - path: "/(.*)"
           pathType: Prefix
+          backend: frontend
 
-# Monitoring configuration
+  tls:
+    - hosts:
+        - "devopsprac.duckdns.org"
+      secretName: "devops-tls"
+
+# Monitoring
 monitoring:
   enabled: true
   serviceMonitor:
-    enabled: false
-  prometheus:
-    scrape: true
-    port: "5000"
-    path: "/metrics"
+    enabled: falses"

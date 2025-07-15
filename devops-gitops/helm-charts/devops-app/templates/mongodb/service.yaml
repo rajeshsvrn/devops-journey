@@ -1,0 +1,22 @@
+{{- if .Values.mongodb.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.mongodb.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.mongodb.name }}
+    app: {{ .Values.mongodb.name }}
+  annotations:
+    {{- toYaml .Values.mongodb.service.annotations | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.mongodb.name }}
+  ports:
+    - name: mongodb
+      port: {{ .Values.mongodb.service.port }}
+      targetPort: {{ .Values.mongodb.service.targetPort }}
+      protocol: TCP
+  type: {{ .Values.mongodb.service.type }}
+{{- end }}

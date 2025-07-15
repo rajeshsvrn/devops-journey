@@ -1,0 +1,72 @@
+{{- if .Values.frontend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.frontend.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ .Values.frontend.name }}
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "devops-app.selectorLabels" . | nindent 6 }}
+      app: {{ .Values.frontend.name }}
+  template:
+    metadata:
+      labels:
+        {{- include "devops-app.selectorLabels" . | nindent 8 }}
+        app: {{ .Values.frontend.name }}
+    spec:
+      {{- if .Values.frontend.securityContext.enabled }}
+      securityContext:
+        runAsNonRoot: {{ .Values.frontend.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.frontend.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.frontend.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.frontend.securityContext.fsGroup }}
+        seccompProfile:
+          type: {{ .Values.frontend.securityContext.seccompProfile.type }}
+      {{- end }}
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.frontend.serviceAccount.name }}
+      containers:
+      - name: {{ .Values.frontend.name }}
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+        imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.frontend.service.targetPort }}
+        env:
+        - name: REACT_APP_API_URL
+          value: {{ .Values.frontend.config.apiUrl }}
+        {{- if .Values.frontend.jaeger.enabled }}
+        # Jaeger configuration
+        - name: JAEGER_SERVICE_NAME
+          value: {{ .Values.frontend.jaeger.serviceName }}
+        - name: JAEGER_AGENT_HOST
+          value: {{ .Values.frontend.jaeger.agentHost }}
+        - name: JAEGER_AGENT_PORT
+          value: {{ .Values.frontend.jaeger.agentPort }}
+        - name: JAEGER_SAMPLER_TYPE
+          value: {{ .Values.frontend.jaeger.samplerType }}
+        - name: JAEGER_SAMPLER_PARAM
+          value: {{ .Values.frontend.jaeger.samplerParam }}
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.frontend.healthCheck.livenessPath }}
+            port: {{ .Values.frontend.service.targetPort }}
+          initialDelaySeconds: {{ .Values.frontend.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.frontend.healthCheck.periodSeconds }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.frontend.healthCheck.readinessPath }}
+            port: {{ .Values.frontend.service.targetPort }}
+          initialDelaySeconds: {{ .Values.frontend.healthCheck.readinessInitialDelay }}
+          periodSeconds: {{ .Values.frontend.healthCheck.periodSeconds }}
+        resources:
+          {{- toYaml .Values.frontend.resources | nindent 12 }}
+{{- end }}
