@@ -1,0 +1,73 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- if .Values.backend.enabled }}
+# PodDisruptionBudget for Backend
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "devops-app.fullname" . }}-backend-pdb
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  {{- if .Values.podDisruptionBudget.backend.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.backend.minAvailable }}
+  {{- else if .Values.podDisruptionBudget.backend.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.backend.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ .Values.podDisruptionBudget.backend.minAvailable | default 1 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "devops-app.selectorLabels" . | nindent 6 }}
+      app: {{ .Values.backend.name }}
+---
+{{- end }}
+{{- if .Values.frontend.enabled }}
+# PodDisruptionBudget for Frontend
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "devops-app.fullname" . }}-frontend-pdb
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  {{- if .Values.podDisruptionBudget.frontend.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.frontend.minAvailable }}
+  {{- else if .Values.podDisruptionBudget.frontend.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.frontend.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ .Values.podDisruptionBudget.frontend.minAvailable | default 1 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "devops-app.selectorLabels" . | nindent 6 }}
+      app: {{ .Values.frontend.name }}
+---
+{{- end }}
+{{- if .Values.mongodb.enabled }}
+# PodDisruptionBudget for MongoDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "devops-app.fullname" . }}-mongodb-pdb
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mongodb
+spec:
+  {{- if .Values.podDisruptionBudget.mongodb.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.mongodb.minAvailable }}
+  {{- else if .Values.podDisruptionBudget.mongodb.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.mongodb.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ .Values.podDisruptionBudget.mongodb.minAvailable | default 1 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "devops-app.selectorLabels" . | nindent 6 }}
+      app: {{ .Values.mongodb.name }}
+{{- end }}
+{{- end }}

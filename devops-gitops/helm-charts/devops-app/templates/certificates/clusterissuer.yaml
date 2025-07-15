@@ -1,0 +1,16 @@
+{{- if and .Values.certManager.enabled .Values.certManager.clusterIssuer.create }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.certManager.clusterIssuer.name }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+spec:
+  acme:
+    email: {{ .Values.certManager.clusterIssuer.email }}
+    server: {{ .Values.certManager.clusterIssuer.server }}
+    privateKeySecretRef:
+      name: {{ .Values.certManager.clusterIssuer.privateKeySecretRef.name }}
+    solvers:
+      {{- toYaml .Values.certManager.clusterIssuer.solvers | nindent 6 }}
+{{- end }}

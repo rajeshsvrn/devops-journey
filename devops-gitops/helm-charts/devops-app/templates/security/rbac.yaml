@@ -1,0 +1,147 @@
+{{- if .Values.rbac.create }}
+# Service Account for MongoDB
+{{- if .Values.mongodb.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.mongodb.serviceAccount.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mongodb
+  {{- with .Values.mongodb.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: {{ .Values.mongodb.serviceAccount.automountServiceAccountToken | default false }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "devops-app.fullname" . }}-mongodb-role
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "devops-app.fullname" . }}-mongodb-binding
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "devops-app.fullname" . }}-mongodb-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.mongodb.serviceAccount.name }}
+  namespace: {{ .Values.global.namespace }}
+---
+{{- end }}
+
+# Service Account for Backend
+{{- if .Values.backend.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.backend.serviceAccount.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+  {{- with .Values.backend.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: {{ .Values.backend.serviceAccount.automountServiceAccountToken | default true }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "devops-app.fullname" . }}-backend-role
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get"]
+{{- if .Values.backend.rbac.additionalRules }}
+{{- toYaml .Values.backend.rbac.additionalRules | nindent 0 }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "devops-app.fullname" . }}-backend-binding
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "devops-app.fullname" . }}-backend-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.backend.serviceAccount.name }}
+  namespace: {{ .Values.global.namespace }}
+---
+{{- end }}
+
+# Service Account for Frontend
+{{- if .Values.frontend.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.frontend.serviceAccount.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+  {{- with .Values.frontend.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: {{ .Values.frontend.serviceAccount.automountServiceAccountToken | default false }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "devops-app.fullname" . }}-frontend-role
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get"]
+{{- if .Values.frontend.rbac.additionalRules }}
+{{- toYaml .Values.frontend.rbac.additionalRules | nindent 0 }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "devops-app.fullname" . }}-frontend-binding
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "devops-app.fullname" . }}-frontend-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.frontend.serviceAccount.name }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+{{- end }}

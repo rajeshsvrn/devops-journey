@@ -1,0 +1,45 @@
+{{- if .Values.limitRange.enabled }}
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ include "devops-app.fullname" . }}-limitrange
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "devops-app.labels" . | nindent 4 }}
+spec:
+  limits:
+    {{- if .Values.limitRange.pod }}
+    # Pod-level limits
+    - type: Pod
+      max:
+        cpu: {{ .Values.limitRange.pod.maxCpu | default "2" | quote }}
+        memory: {{ .Values.limitRange.pod.maxMemory | default "4Gi" | quote }}
+      min:
+        cpu: {{ .Values.limitRange.pod.minCpu | default "10m" | quote }}
+        memory: {{ .Values.limitRange.pod.minMemory | default "16Mi" | quote }}
+    {{- end }}
+    {{- if .Values.limitRange.container }}
+    # Container-level limits
+    - type: Container
+      max:
+        cpu: {{ .Values.limitRange.container.maxCpu | default "1" | quote }}
+        memory: {{ .Values.limitRange.container.maxMemory | default "2Gi" | quote }}
+      min:
+        cpu: {{ .Values.limitRange.container.minCpu | default "10m" | quote }}
+        memory: {{ .Values.limitRange.container.minMemory | default "16Mi" | quote }}
+      default:
+        cpu: {{ .Values.limitRange.container.defaultCpu | default "100m" | quote }}
+        memory: {{ .Values.limitRange.container.defaultMemory | default "128Mi" | quote }}
+      defaultRequest:
+        cpu: {{ .Values.limitRange.container.defaultRequestCpu | default "50m" | quote }}
+        memory: {{ .Values.limitRange.container.defaultRequestMemory | default "64Mi" | quote }}
+    {{- end }}
+    {{- if .Values.limitRange.pvc }}
+    # PersistentVolumeClaim limits
+    - type: PersistentVolumeClaim
+      max:
+        storage: {{ .Values.limitRange.pvc.maxStorage | default "10Gi" | quote }}
+      min:
+        storage: {{ .Values.limitRange.pvc.minStorage | default "1Gi" | quote }}
+    {{- end }}
+{{- end }}
