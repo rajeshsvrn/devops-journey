@@ -2,7 +2,7 @@
 
 echo "🔍 Extracting values from existing manifests..."
 
-MANIFEST_DIR="../k8s-manifests"
+MANIFEST_DIR="./k8s-manifests"
 
 # Extract backend values
 echo "=== BACKEND VALUES ==="
