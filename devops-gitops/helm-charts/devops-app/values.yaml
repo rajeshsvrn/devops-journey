@@ -18,9 +18,9 @@ backend:
   name: backend
 
   image:
-    repository: "devopsjourney.azurecr.io/devops-backend:v7"
+    repository: "devopsjourney.azurecr.io/devops-backend"
     # Extract repo name from full image path
-    tag: "latest"
+    tag: "v7"
     pullPolicy: IfNotPresent
 
   replicaCount: 2
@@ -64,8 +64,8 @@ frontend:
   name: frontend
 
   image:
-    repository: "devopsjourney.azurecr.io/devops-frontend:v10"
-    tag: "latest"
+    repository: "devopsjourney.azurecr.io/devops-frontend"
+    tag: "v10"
     pullPolicy: IfNotPresent
 
   replicaCount: 2
