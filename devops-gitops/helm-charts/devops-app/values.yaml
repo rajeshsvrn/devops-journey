@@ -1,0 +1,155 @@
+# Global configuration
+global:
+  namespace: dev
+  imageRegistry: "devopsjourney.azurecr.io/devops-backend:v7" # Update to your actual registry
+  imageTag: "latest"
+  environment: dev
+
+  # Standard labels
+  labels:
+    app.kubernetes.io/name: devops-app
+    app.kubernetes.io/part-of: enterprise-platform
+    app.kubernetes.io/managed-by: helm
+    environment: dev
+
+# Backend configuration (from your backend.yaml)
+backend:
+  enabled: true
+  name: backend
+
+  image:
+    repository: "devopsjourney.azurecr.io/devops-backend:v7"
+    # Extract repo name from full image path
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  service:
+    type: ClusterIP
+    port: 5000
+    targetPort: 5000
+
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+  # Configuration from your configmap
+  config:
+    nodeEnv: "development"
+    port: 5000
+    logLevel: "info"
+
+  # Security context (from your secure deployments)
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+# Frontend configuration (from your frontend.yaml)
+frontend:
+  enabled: true
+  name: frontend
+
+  image:
+    repository: "devopsjourney.azurecr.io/devops-frontend:v10"
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    fsGroup: 101
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+# MongoDB configuration (from your mongodb.yaml)
+mongodb:
+  enabled: true
+  name: mongodb
+
+  image:
+    repository: "mongo"
+    tag: "6.0"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 27017
+    targetPort: 27017
+
+  persistence:
+    enabled: true
+    storageClass: "local-path" # Update based on your storage class
+    size: 5Gi
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+
+# Ingress configuration (from your ingress.yaml)
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false" # Simplified for dev
+
+  hosts:
+    - host: "devopsprac.duckdns.org"
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /api
+          pathType: Prefix
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+  prometheus:
+    scrape: true
+    port: "5000"
+    path: "/metrics"
