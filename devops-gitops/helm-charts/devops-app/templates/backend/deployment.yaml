@@ -51,15 +51,15 @@ spec:
         {{- if .Values.backend.jaeger.enabled }}
         # Jaeger Tracing Configuration
         - name: JAEGER_SERVICE_NAME
-          value: {{ .Values.backend.jaeger.serviceName }}
+          value: {{ .Values.backend.jaeger.serviceName | quote }}
         - name: JAEGER_AGENT_HOST
-          value: {{ .Values.backend.jaeger.agentHost }}
+          value: {{ .Values.backend.jaeger.agentHost | quote }}
         - name: JAEGER_AGENT_PORT
-          value: {{ .Values.backend.jaeger.agentPort }}
+          value: {{ .Values.backend.jaeger.agentPort | quote }}
         - name: JAEGER_SAMPLER_TYPE
-          value: {{ .Values.backend.jaeger.samplerType }}
+          value: {{ .Values.backend.jaeger.samplerType | quote }}
         - name: JAEGER_SAMPLER_PARAM
-          value: {{ .Values.backend.jaeger.samplerParam }}
+          value: {{ .Values.backend.jaeger.samplerParam | quote     }}
         {{- end }}
         securityContext:
           {{- toYaml .Values.backend.containerSecurityContext | nindent 12 }}
