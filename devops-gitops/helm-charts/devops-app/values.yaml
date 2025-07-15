@@ -1,6 +1,6 @@
 # Global configuration
 global:
-  namespace: dev
+  namespace: develop
   imageRegistry: "devopsjourney.azurecr.io/devops-backend:v7" # Update to your actual registry
   imageTag: "latest"
   environment: dev
