@@ -24,7 +24,7 @@ spec:
         - name: acr-admin-creds
       containers:
         - name: backend
-          image: devopsjourney.azurecr.io/devops-backend:v7
+          image: devopsjourney.azurecr.io/devops-backend:v8
           ports:
             - containerPort: 5000
           envFrom:
