@@ -17,7 +17,7 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-        - values-qa.yaml
+        - qa-values.yaml
       parameters:
         - name: global.namespace
           value: qa
