@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: https://github.com/rajeshsvrn/devops-journey.git # Replace with your repo
     targetRevision: HEAD
-    path: helm-charts/devops-app
+    path: devops-gitops/helm-charts/devops-app
     helm:
       valueFiles:
         - values.yaml
