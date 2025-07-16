@@ -10,7 +10,7 @@ spec:
 
   # Source repositories (update with your actual repo URL)
   sourceRepos:
-    - "https://github.com/your-username/devops-gitops.git" # Replace with your repo
+    - "https://github.com/rajeshsvrn/devops-journey.git" # Replace with your repo
     - "*" # Allow all repositories for flexibility
 
   # Allowed destinations
