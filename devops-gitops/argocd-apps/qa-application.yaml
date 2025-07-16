@@ -1,0 +1,56 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: devops-app-qa
+  namespace: argocd
+  labels:
+    environment: qa
+    team: devops
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: devops-project
+  source:
+    repoURL: https://github.com/your-username/devops-gitops.git # Replace with your repo
+    targetRevision: HEAD
+    path: helm-charts/devops-app
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-qa.yaml
+      parameters:
+        - name: global.namespace
+          value: qa
+        - name: global.environment
+          value: qa
+        - name: backend.image.tag
+          value: "v8"
+        - name: frontend.image.tag
+          value: "v10"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: qa
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
+  info:
+    - name: Description
+      value: "QA environment for DevOps application"
+    - name: Owner
+      value: "DevOps Team"
+    - name: Domain
+      value: "qaraj.duckdns.org"

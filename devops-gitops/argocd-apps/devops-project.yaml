@@ -1,0 +1,81 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: devops-project
+  namespace: argocd
+  labels:
+    project: devops
+spec:
+  description: "DevOps Learning Project - Multi-environment deployment"
+
+  # Source repositories (update with your actual repo URL)
+  sourceRepos:
+    - "https://github.com/your-username/devops-gitops.git" # Replace with your repo
+    - "*" # Allow all repositories for flexibility
+
+  # Allowed destinations
+  destinations:
+    - namespace: "develop"
+      server: https://kubernetes.default.svc
+    - namespace: "qa"
+      server: https://kubernetes.default.svc
+    - namespace: "argocd"
+      server: https://kubernetes.default.svc
+
+  # Cluster resource whitelist
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRole
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRoleBinding
+    - group: "cert-manager.io"
+      kind: ClusterIssuer
+
+  # Namespace resource whitelist
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: "*"
+    - group: "apps"
+      kind: "*"
+    - group: "networking.k8s.io"
+      kind: "*"
+    - group: "policy"
+      kind: "*"
+    - group: "autoscaling"
+      kind: "*"
+    - group: "monitoring.coreos.com"
+      kind: "*"
+    - group: "cert-manager.io"
+      kind: "*"
+
+  # Project roles
+  roles:
+    - name: developer
+      description: "Developer access to develop environment"
+      policies:
+        - p, proj:devops-project:developer, applications, get, devops-project/devops-app-develop, allow
+        - p, proj:devops-project:developer, applications, sync, devops-project/devops-app-develop, allow
+        - p, proj:devops-project:developer, applications, action/*, devops-project/devops-app-develop, allow
+        - p, proj:devops-project:developer, logs, get, devops-project/devops-app-develop, allow
+      groups:
+        - devops-developers
+
+    - name: qa-tester
+      description: "QA access to qa environment"
+      policies:
+        - p, proj:devops-project:qa-tester, applications, get, devops-project/devops-app-qa, allow
+        - p, proj:devops-project:qa-tester, applications, sync, devops-project/devops-app-qa, allow
+        - p, proj:devops-project:qa-tester, logs, get, devops-project/devops-app-qa, allow
+      groups:
+        - qa-team
+
+    - name: admin
+      description: "Admin access to all environments"
+      policies:
+        - p, proj:devops-project:admin, applications, *, devops-project/*, allow
+        - p, proj:devops-project:admin, repositories, *, *, allow
+        - p, proj:devops-project:admin, logs, get, devops-project/*, allow
+      groups:
+        - platform-admins
