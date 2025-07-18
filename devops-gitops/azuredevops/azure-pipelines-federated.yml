@@ -1,0 +1,37 @@
+# azure-pipelines-federated.yml
+trigger:
+  branches:
+    include: [main, qa, develop]
+
+variables:
+  azureServiceConnection: "azure-federated-identity"
+
+  ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:
+    namespace: "develop"
+    serviceAccount: "azure-devops-develop-sa"
+  ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
+    namespace: "qa"
+    serviceAccount: "azure-devops-qa-sa"
+
+stages:
+  - stage: Deploy
+    jobs:
+      - job: DeployWithFederatedIdentity
+        pool:
+          vmImage: "ubuntu-latest"
+        steps:
+          - task: AzureCLI@2
+            displayName: "Deploy with Federated Identity"
+            inputs:
+              azureSubscription: "$(azureServiceConnection)"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "🔐 Authenticated with federated identity!"
+                echo "🚀 Deploying to $(namespace) with service account $(serviceAccount)"
+
+                # Configure kubectl with Azure AD token
+                az aks get-credentials --resource-group your-rg --name your-cluster
+
+                # Deploy your application
+                kubectl get pods -n $(namespace)
