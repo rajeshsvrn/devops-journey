@@ -24,4 +24,5 @@ stages:
                 az account show
                 echo "✅ Authentication successful!"
                 echo "Branch: $(Build.SourceBranch)"
-                echo "This proves federated identity is working!"
+                echo "This proves federated identity is working!
+
