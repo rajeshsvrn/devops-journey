@@ -30,7 +30,7 @@ function App() {
 
     return (
         <div className="App">
-            <h1>DevOps Journey</h1>
+            <h1>DevOps Journey with GitOps</h1>
             <form onSubmit={handleSubmit}>
                 <input placeholder="Username" onChange={e => setForm({ ...form, username: e.target.value })} />
                 <input placeholder="Password" type="password" onChange={e => setForm({ ...form, password: e.target.value })} />
