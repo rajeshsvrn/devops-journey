@@ -9,11 +9,6 @@ variables:
   azureServiceConnection: "azure-federated-identity"
   containerRegistry: "devopsjourney.azurecr.io"
   gitOpsRepoUrl: "https://github.com/rajeshsvrn/devops-journey.git"
-
-  # Set variables based on the branch
-  # YAML 'if' expressions require each mapping key on a single line
-  # Use 'settable variable groups' or 'template expressions' for complex cases
-  # Here, we use runtime expressions for branch-specific variables
   targetEnvironment: $[coalesce(
     eq(variables['Build.SourceBranch'], 'refs/heads/develop') ? 'development',
     eq(variables['Build.SourceBranch'], 'refs/heads/qa') ? 'qa',
@@ -60,17 +55,14 @@ stages:
                 echo "🏗️ Building images for $(targetEnvironment)"
                 echo "📦 Image tag: $(imageTag)"
 
-                # Login to Azure Container Registry
                 az acr login --name devopsjourney
                 echo "✅ Logged in to ACR"
 
-                # Build backend image
                 echo "🔨 Building backend image..."
                 docker build -t $(containerRegistry)/devops-backend:$(imageTag) backend/
                 docker push $(containerRegistry)/devops-backend:$(imageTag)
                 echo "✅ Backend image pushed"
 
-                # Build frontend image
                 echo "🔨 Building frontend image..."
                 docker build -t $(containerRegistry)/devops-frontend:$(imageTag) frontend/
                 docker push $(containerRegistry)/devops-frontend:$(imageTag)
@@ -89,16 +81,13 @@ stages:
                 echo "🎯 Target namespace: $(namespace)"
                 echo "🏷️ Image tag: $(imageTag)"
 
-                # Configure git
                 git config --global user.email "azure-devops@devopsjourney.com"
                 git config --global user.name "Azure DevOps Pipeline"
 
-                # Clone the repository
                 echo "📥 Cloning repository..."
                 git clone $(gitOpsRepoUrl) gitops-working
                 cd gitops-working
 
-                # Determine which values file to update
                 if [ "$(targetEnvironment)" = "development" ]; then
                   VALUES_FILE="devops-gitops/helm-charts/devops-app/values.yaml"
                 else
@@ -107,18 +96,15 @@ stages:
 
                 echo "📝 Updating values file: $VALUES_FILE"
 
-                # Check if file exists
                 if [ ! -f "$VALUES_FILE" ]; then
                   echo "❌ Values file not found: $VALUES_FILE"
                   ls -la devops-gitops/helm-charts/devops-app/
                   exit 1
                 fi
 
-                # Show current content
                 echo "📋 Current backend/frontend image tags:"
                 grep -A 3 "tag:" $VALUES_FILE
 
-                # Update image tags
                 sed -i "s|tag: \"v[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
                 sed -i "s|tag: \"dev-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
                 sed -i "s|tag: \"qa-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
@@ -126,22 +112,25 @@ stages:
                 echo "📋 Updated image tags:"
                 grep -A 3 "tag:" $VALUES_FILE
 
-                # Check if there are changes
                 if git diff --quiet; then
                   echo "ℹ️ No changes detected in values file"
                 else
                   echo "📤 Committing changes..."
                   git add $VALUES_FILE
 
-                  git commit -m "🚀 Deploy $(targetEnvironment): Update images to $(imageTag)
-                Environment: $(targetEnvironment)
-                Namespace: $(namespace)
-                Backend: $(containerRegistry)/devops-backend:$(imageTag)
-                Frontend: $(containerRegistry)/devops-frontend:$(imageTag)
+                  # Write the multline commit message to a file, then commit using -F
+                  cat > commitmsg.txt <<EOF
+🚀 Deploy $(targetEnvironment): Update images to $(imageTag)
+Environment: $(targetEnvironment)
+Namespace: $(namespace)
+Backend: $(containerRegistry)/devops-backend:$(imageTag)
+Frontend: $(containerRegistry)/devops-frontend:$(imageTag)
 
-                Pipeline: $(Build.BuildNumber)
-                Branch: $(Build.SourceBranch)"
+Pipeline: $(Build.BuildNumber)
+Branch: $(Build.SourceBranch)
+EOF
 
+                  git commit -F commitmsg.txt
                   git push origin HEAD
                   echo "✅ Changes pushed to repository!"
                   echo "🚀 ArgoCD will detect changes and deploy automatically"
