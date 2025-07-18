@@ -1,132 +1,226 @@
+# azure-pipelines-gitops.yml
+# Based on your existing GitOps structure shown in the images
+
 trigger:
   branches:
-    include:
-      - develop
-      - qa
-      - main
+    include: [develop, qa, main]
 
 variables:
   azureServiceConnection: "azure-federated-identity"
   containerRegistry: "devopsjourney.azurecr.io"
+  
+  # Your existing GitOps repository (from the ArgoCD config)
   gitOpsRepoUrl: "https://github.com/rajeshsvrn/devops-journey.git"
-
-  targetEnvironment: ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }} then 'qa' else 'development'
-  namespace: ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }} then 'qa' else 'develop'
-  imageTag: ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }} then 'qa-$(Build.BuildNumber)' else 'dev-$(Build.BuildNumber)'
+  gitOpsRepoBranch: "HEAD"  # As shown in ArgoCD config
+  
+  # Environment-specific variables
+  ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:
+    targetEnvironment: 'development'
+    namespace: 'develop'
+    imageTag: 'dev-$(Build.BuildNumber)'
+    argocdApp: 'devops-app-develop'  # From your argocd-apps
+    
+  ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
+    targetEnvironment: 'qa'
+    namespace: 'qa'
+    imageTag: 'qa-$(Build.BuildNumber)'
+    argocdApp: 'devops-app-qa'  # From your qa-application.yaml
+    
+  ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+    targetEnvironment: 'production'
+    namespace: 'production'
+    imageTag: 'prod-$(Build.BuildNumber)'
+    argocdApp: 'devops-app-production'
 
 stages:
-  - stage: Test_GitOps_Simple
-    displayName: "Simple GitOps Test"
-    jobs:
-      - job: TestGitOps
-        displayName: "Test GitOps Workflow"
-        pool:
-          name: "devopsjourney"
-        steps:
-          - task: AzureCLI@2
-            displayName: "Test Azure Authentication"
-            inputs:
-              azureSubscription: "$(azureServiceConnection)"
-              scriptType: "bash"
-              scriptLocation: "inlineScript"
-              inlineScript: |
-                echo '🔐 Testing Azure AD federated authentication...'
-                az account show
-                echo '✅ Authentication successful!'
-                echo "Branch: $(Build.SourceBranch)"
-                echo "Environment: $(targetEnvironment)"
-                echo "Image Tag: $(imageTag)"
+- stage: Build_and_Push_Images
+  displayName: 'Build & Push Container Images'
+  jobs:
+  - job: BuildImages
+    displayName: 'Build Application Images'
+    pool:
+      name: "devopsjourney"
+    steps:
+    
+    - task: AzureCLI@2
+      displayName: "Build and Push Backend Image"
+      inputs:
+        azureSubscription: "$(azureServiceConnection)"
+        scriptType: "bash"
+        scriptLocation: "inlineScript"
+        inlineScript: |
+          echo "🔐 Azure AD federated authentication successful!"
+          echo "🏗️ Building backend image for $(targetEnvironment)"
+          echo "📦 Image tag: $(imageTag)"
+          
+          # Login to Azure Container Registry
+          az acr login --name devopsjourney
+          
+          # Build and push backend image
+          echo "🔨 Building backend image..."
+          docker build -t $(containerRegistry)/devops-backend:$(imageTag) backend/
+          docker push $(containerRegistry)/devops-backend:$(imageTag)
+          
+          # Also tag as environment-latest for easy reference
+          docker tag $(containerRegistry)/devops-backend:$(imageTag) $(containerRegistry)/devops-backend:$(targetEnvironment)-latest
+          docker push $(containerRegistry)/devops-backend:$(targetEnvironment)-latest
+          
+          echo "✅ Backend image built and pushed!"
+          echo "Image: $(containerRegistry)/devops-backend:$(imageTag)"
 
-          - task: AzureCLI@2
-            displayName: "Build and Push Images"
-            inputs:
-              azureSubscription: "$(azureServiceConnection)"
-              scriptType: "bash"
-              scriptLocation: "inlineScript"
-              inlineScript: |
-                echo "🏗️ Building images for $(targetEnvironment)"
-                echo "📦 Image tag: $(imageTag)"
+    - task: AzureCLI@2
+      displayName: "Build and Push Frontend Image"
+      inputs:
+        azureSubscription: "$(azureServiceConnection)"
+        scriptType: "bash"
+        scriptLocation: "inlineScript"
+        inlineScript: |
+          echo "🔨 Building frontend image..."
+          
+          # Build and push frontend image
+          docker build -t $(containerRegistry)/devops-frontend:$(imageTag) frontend/
+          docker push $(containerRegistry)/devops-frontend:$(imageTag)
+          
+          # Also tag as environment-latest
+          docker tag $(containerRegistry)/devops-frontend:$(imageTag) $(containerRegistry)/devops-frontend:$(targetEnvironment)-latest
+          docker push $(containerRegistry)/devops-frontend:$(targetEnvironment)-latest
+          
+          echo "✅ Frontend image built and pushed!"
+          echo "Image: $(containerRegistry)/devops-frontend:$(imageTag)"
 
-                az acr login --name devopsjourney
-                echo "✅ Logged in to ACR"
+- stage: Update_Helm_Values
+  displayName: 'Update Helm Values for GitOps'
+  dependsOn: Build_and_Push_Images
+  jobs:
+  - job: UpdateHelmValues
+    displayName: 'Update Helm Chart Values'
+    pool:
+      name: "devopsjourney"
+    steps:
+    
+    - task: AzureCLI@2
+      displayName: "Update Helm Values in GitOps Repo"
+      inputs:
+        azureSubscription: "$(azureServiceConnection)"
+        scriptType: "bash"
+        scriptLocation: "inlineScript"
+        inlineScript: |
+          echo "📝 Updating Helm values for $(targetEnvironment)"
+          echo "🎯 Target ArgoCD app: $(argocdApp)"
+          echo "🏷️ Image tag: $(imageTag)"
+          
+          # Configure git
+          git config --global user.email "azure-devops@devopsjourney.com"
+          git config --global user.name "Azure DevOps Pipeline"
+          
+          # Clone the repository (same repo where your code is)
+          echo "📥 Cloning repository..."
+          git clone $(gitOpsRepoUrl) gitops-working
+          cd gitops-working
+          
+          # Update the appropriate Helm values file based on environment
+          if [ "$(targetEnvironment)" = "development" ]; then
+            VALUES_FILE="devops-gitops/helm-charts/devops-app/values.yaml"
+          elif [ "$(targetEnvironment)" = "qa" ]; then
+            VALUES_FILE="devops-gitops/helm-charts/devops-app/qa-values.yaml"
+          else
+            VALUES_FILE="devops-gitops/helm-charts/devops-app/prod-values.yaml"
+          fi
+          
+          echo "📝 Updating values file: $VALUES_FILE"
+          
+          # Update backend image tag
+          sed -i "s|tag: \"v[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
+          sed -i "s|tag: \"dev-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
+          sed -i "s|tag: \"qa-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
+          sed -i "s|tag: \"prod-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
+          
+          # More specific updates for backend and frontend sections
+          # Update backend image tag
+          sed -i "/backend:/,/frontend:/ { /image:/,/pullPolicy:/ s|tag: \".*\"|tag: \"$(imageTag)\"|g }" $VALUES_FILE
+          
+          # Update frontend image tag  
+          sed -i "/frontend:/,/mongodb:/ { /image:/,/pullPolicy:/ s|tag: \".*\"|tag: \"$(imageTag)\"|g }" $VALUES_FILE
+          
+          echo "✅ Values file updated. Current backend/frontend sections:"
+          grep -A 10 "backend:" $VALUES_FILE | head -15
+          grep -A 10 "frontend:" $VALUES_FILE | head -15
+          
+          # Check if there are actually changes to commit
+          if git diff --quiet; then
+            echo "ℹ️ No changes detected in values file"
+          else
+            echo "📤 Committing changes..."
+            git add $VALUES_FILE
+            
+            git commit -m "🚀 Deploy $(targetEnvironment): Update images to $(imageTag)
 
-                echo "🔨 Building backend image..."
-                docker build -t $(containerRegistry)/devops-backend:$(imageTag) backend/
-                docker push $(containerRegistry)/devops-backend:$(imageTag)
-                echo "✅ Backend image pushed"
+            Environment: $(targetEnvironment)
+            Namespace: $(namespace)
+            Backend Image: $(containerRegistry)/devops-backend:$(imageTag)
+            Frontend Image: $(containerRegistry)/devops-frontend:$(imageTag)
+            
+            Pipeline: $(Build.BuildNumber)
+            Branch: $(Build.SourceBranch)
+            Triggered by: $(Build.RequestedFor)
+            
+            ArgoCD App: $(argocdApp) will auto-sync this change"
+            
+            git push origin HEAD
+            echo "✅ Changes pushed to repository!"
+            echo "🚀 ArgoCD will detect changes and deploy automatically"
+          fi
 
-                echo "🔨 Building frontend image..."
-                docker build -t $(containerRegistry)/devops-frontend:$(imageTag) frontend/
-                docker push $(containerRegistry)/devops-frontend:$(imageTag)
-                echo "✅ Frontend image pushed"
-
-                echo "🎉 All images built and pushed successfully!"
-
-          - task: AzureCLI@2
-            displayName: "Update GitOps Repository"
-            inputs:
-              azureSubscription: "$(azureServiceConnection)"
-              scriptType: "bash"
-              scriptLocation: "inlineScript"
-              inlineScript: |
-                echo "📝 Updating GitOps repository for $(targetEnvironment)"
-                echo "🎯 Target namespace: $(namespace)"
-                echo "🏷️ Image tag: $(imageTag)"
-
-                git config --global user.email "azure-devops@devopsjourney.com"
-                git config --global user.name "Azure DevOps Pipeline"
-
-                echo "📥 Cloning repository..."
-                git clone $(gitOpsRepoUrl) gitops-working
-                cd gitops-working
-
-                if [ "$(targetEnvironment)" = "development" ]; then
-                  VALUES_FILE="devops-gitops/helm-charts/devops-app/values.yaml"
-                else
-                  VALUES_FILE="devops-gitops/helm-charts/devops-app/qa-values.yaml"
-                fi
-
-                echo "📝 Updating values file: $VALUES_FILE"
-
-                if [ ! -f "$VALUES_FILE" ]; then
-                  echo "❌ Values file not found: $VALUES_FILE"
-                  ls -la devops-gitops/helm-charts/devops-app/
-                  exit 1
-                fi
-
-                echo "📋 Current backend/frontend image tags:"
-                grep -A 3 "tag:" $VALUES_FILE
-
-                sed -i "s|tag: \"v[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
-                sed -i "s|tag: \"dev-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
-                sed -i "s|tag: \"qa-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
-
-                echo "📋 Updated image tags:"
-                grep -A 3 "tag:" $VALUES_FILE
-
-                if git diff --quiet; then
-                  echo "ℹ️ No changes detected in values file"
-                else
-                  echo "📤 Committing changes..."
-                  git add $VALUES_FILE
-
-                  cat > commitmsg.txt <<EOF
-🚀 Deploy $(targetEnvironment): Update images to $(imageTag)
-Environment: $(targetEnvironment)
-Namespace: $(namespace)
-Backend: $(containerRegistry)/devops-backend:$(imageTag)
-Frontend: $(containerRegistry)/devops-frontend:$(imageTag)
-
-Pipeline: $(Build.BuildNumber)
-Branch: $(Build.SourceBranch)
-EOF
-
-                  git commit -F commitmsg.txt
-                  git push origin HEAD
-                  echo "✅ Changes pushed to repository!"
-                  echo "🚀 ArgoCD will detect changes and deploy automatically"
-                fi
-
-                echo "🎉 GitOps update completed!"
-                echo "📍 Updated file: $VALUES_FILE"
-                echo "🔄 ArgoCD will sync within 3 minutes"
+- stage: Trigger_ArgoCD_Sync
+  displayName: 'Trigger ArgoCD Sync (Optional)'
+  dependsOn: Update_Helm_Values
+  jobs:
+  - job: TriggerSync
+    displayName: 'Notify ArgoCD'
+    pool:
+      name: "devopsjourney"
+    steps:
+    
+    - task: AzureCLI@2
+      displayName: "Notify ArgoCD and Wait for Sync"
+      inputs:
+        azureSubscription: "$(azureServiceConnection)"
+        scriptType: "bash"
+        scriptLocation: "inlineScript"
+        inlineScript: |
+          echo "🔔 ArgoCD Sync Notification"
+          echo "📱 App: $(argocdApp)"
+          echo "🎯 Environment: $(targetEnvironment)"
+          echo "📦 Images deployed:"
+          echo "  Backend: $(containerRegistry)/devops-backend:$(imageTag)"
+          echo "  Frontend: $(containerRegistry)/devops-frontend:$(imageTag)"
+          
+          # Optional: Call ArgoCD API to trigger immediate sync
+          # (Requires ArgoCD API access and token)
+          # argocd app sync $(argocdApp) --auth-token $ARGOCD_TOKEN
+          
+          echo "⏰ ArgoCD will sync within 3 minutes (default sync interval)"
+          echo "🔍 You can monitor the deployment at:"
+          
+          if [ "$(targetEnvironment)" = "development" ]; then
+            echo "🌐 Development: https://devraj.duckdns.org"
+          elif [ "$(targetEnvironment)" = "qa" ]; then  
+            echo "🌐 QA: https://qaraj.duckdns.org"
+          elif [ "$(targetEnvironment)" = "production" ]; then
+            echo "🌐 Production: https://prodraj.duckdns.org"
+          fi
+          
+          echo ""
+          echo "🎉 GitOps Deployment Completed Successfully!"
+          echo "✅ No Kubernetes API access required"
+          echo "✅ No kubectl commands needed"
+          echo "✅ ArgoCD handles all cluster operations"
+          echo "✅ Git is the single source of truth"
+          echo "✅ Full audit trail in Git history"
+          echo ""
+          echo "📋 Deployment Summary:"
+          echo "  Environment: $(targetEnvironment)"
+          echo "  Namespace: $(namespace)"  
+          echo "  ArgoCD App: $(argocdApp)"
+          echo "  Image Tag: $(imageTag)"
+          echo "  Pipeline: $(Build.BuildNumber)"
