@@ -9,18 +9,10 @@ variables:
   azureServiceConnection: "azure-federated-identity"
   containerRegistry: "devopsjourney.azurecr.io"
   gitOpsRepoUrl: "https://github.com/rajeshsvrn/devops-journey.git"
-  targetEnvironment: $[coalesce(
-    eq(variables['Build.SourceBranch'], 'refs/heads/develop') ? 'development',
-    eq(variables['Build.SourceBranch'], 'refs/heads/qa') ? 'qa',
-    'development')]
-  namespace: $[coalesce(
-    eq(variables['Build.SourceBranch'], 'refs/heads/develop') ? 'develop',
-    eq(variables['Build.SourceBranch'], 'refs/heads/qa') ? 'qa',
-    'develop')]
-  imageTag: $[coalesce(
-    eq(variables['Build.SourceBranch'], 'refs/heads/develop') ? 'dev-$(Build.BuildNumber)',
-    eq(variables['Build.SourceBranch'], 'refs/heads/qa') ? 'qa-$(Build.BuildNumber)',
-    'dev-$(Build.BuildNumber)')]
+
+  targetEnvironment: ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }} then 'qa' else 'development'
+  namespace: ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }} then 'qa' else 'develop'
+  imageTag: ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/qa') }} then 'qa-$(Build.BuildNumber)' else 'dev-$(Build.BuildNumber)'
 
 stages:
   - stage: Test_GitOps_Simple
@@ -38,9 +30,9 @@ stages:
               scriptType: "bash"
               scriptLocation: "inlineScript"
               inlineScript: |
-                echo "🔐 Testing Azure AD federated authentication..."
+                echo '🔐 Testing Azure AD federated authentication...'
                 az account show
-                echo "✅ Authentication successful!"
+                echo '✅ Authentication successful!'
                 echo "Branch: $(Build.SourceBranch)"
                 echo "Environment: $(targetEnvironment)"
                 echo "Image Tag: $(imageTag)"
@@ -118,7 +110,6 @@ stages:
                   echo "📤 Committing changes..."
                   git add $VALUES_FILE
 
-                  # Write the multline commit message to a file, then commit using -F
                   cat > commitmsg.txt <<EOF
 🚀 Deploy $(targetEnvironment): Update images to $(imageTag)
 Environment: $(targetEnvironment)
