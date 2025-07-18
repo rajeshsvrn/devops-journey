@@ -1,37 +1,147 @@
-# azure-pipelines-federated.yml
 trigger:
   branches:
     include: [main, qa, develop]
 
 variables:
-  azureServiceConnection: "azure-federated-identity"
-
-  ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:
-    namespace: "develop"
-    serviceAccount: "azure-devops-develop-sa"
+  containerRegistry: 'devopsjourney.azurecr.io'
+  
+  # Environment-specific variables  
+  ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+    targetEnvironment: 'production'
+    namespace: 'production'
+    kubernetesConnection: 'kubernetes-production'
+    
   ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
-    namespace: "qa"
-    serviceAccount: "azure-devops-qa-sa"
+    targetEnvironment: 'qa'
+    namespace: 'qa'
+    kubernetesConnection: 'kubernetes-qa'
+    
+  ${{ else }}:
+    targetEnvironment: 'development'
+    namespace: 'develop'
+    kubernetesConnection: 'kubernetes-development'
 
 stages:
-  - stage: Deploy
-    jobs:
-      - job: DeployWithFederatedIdentity
-        pool:
-          name: "devopsjourney"
-        steps:
-          - task: AzureCLI@2
-            displayName: "Deploy with Federated Identity"
-            inputs:
-              azureSubscription: "$(azureServiceConnection)"
-              scriptType: "bash"
-              scriptLocation: "inlineScript"
-              inlineScript: |
-                echo "🔐 Authenticated with federated identity!"
-                echo "🚀 Deploying to $(namespace) with service account $(serviceAccount)"
+- stage: Test_Connection
+  displayName: 'Test Kubernetes Connection'
+  jobs:
+  - job: TestConnection
+    displayName: 'Test Service Account Connection'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    
+    - task: Kubernetes@1
+      displayName: 'Test - Get Nodes'
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesConnection)'
+        command: 'get'
+        arguments: 'nodes'
+        
+    - task: Kubernetes@1
+      displayName: 'Test - Get Pods in Namespace'
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesConnection)'
+        namespace: '$(namespace)'
+        command: 'get'
+        arguments: 'pods'
+        
+    - task: Kubernetes@1
+      displayName: 'Test - Get Services in Namespace'
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesConnection)'
+        namespace: '$(namespace)'
+        command: 'get'
+        arguments: 'services'
 
-                # Configure kubectl with Azure AD token
-                az aks get-credentials --resource-group your-rg --name your-cluster
-
-                # Deploy your application
-                kubectl get pods -n $(namespace)
+- stage: Simple_Deploy
+  displayName: 'Simple Test Deployment'
+  dependsOn: Test_Connection
+  condition: succeeded()
+  jobs:
+  - job: DeployTest
+    displayName: 'Deploy Test Application'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    
+    - task: Kubernetes@1
+      displayName: 'Create Test Deployment'
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesConnection)'
+        namespace: '$(namespace)'
+        command: 'apply'
+        useConfigurationFile: true
+        inline: |
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: simple-test-app
+            namespace: $(namespace)
+            labels:
+              app: simple-test
+              environment: $(targetEnvironment)
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: simple-test
+            template:
+              metadata:
+                labels:
+                  app: simple-test
+              spec:
+                containers:
+                - name: nginx
+                  image: nginx:latest
+                  ports:
+                  - containerPort: 80
+                  resources:
+                    requests:
+                      memory: "64Mi"
+                      cpu: "50m"
+                    limits:
+                      memory: "128Mi"
+                      cpu: "100m"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: simple-test-service
+            namespace: $(namespace)
+          spec:
+            selector:
+              app: simple-test
+            ports:
+            - port: 80
+              targetPort: 80
+            type: ClusterIP
+    
+    - task: Kubernetes@1
+      displayName: 'Verify Deployment'
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesConnection)'
+        namespace: '$(namespace)'
+        command: 'get'
+        arguments: 'pods -l app=simple-test'
+        
+    - task: Kubernetes@1
+      displayName: 'Show Deployment Status'
+      inputs:
+        connectionType: 'Kubernetes Service Connection'
+        kubernetesServiceEndpoint: '$(kubernetesConnection)'
+        namespace: '$(namespace)'
+        command: 'rollout'
+        arguments: 'status deployment/simple-test-app'
+        
+    - script: |
+        echo "✅ Simple test deployment completed!"
+        echo "Environment: $(targetEnvironment)"
+        echo "Namespace: $(namespace)"
+        echo "Service Connection: $(kubernetesConnection)"
+      displayName: 'Deployment Summary'
