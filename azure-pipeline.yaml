@@ -1,5 +1,5 @@
 # azure-pipelines-gitops.yml
-# Based on your existing GitOps structure shown in the images
+# Based on your existing GitOps structure shown in the images.
 
 trigger:
   branches:
