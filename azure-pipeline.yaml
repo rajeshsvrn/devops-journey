@@ -99,7 +99,7 @@ stages:
       - job: UpdateHelmValues
         displayName: "Update Helm Chart Values"
         pool:
-          name: "devopsjourney"
+          name: "devopsjourney1"
         steps:
           - task: AzureCLI@2
             displayName: "Update Helm Values in GitOps Repo"
