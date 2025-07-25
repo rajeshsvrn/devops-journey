@@ -108,7 +108,7 @@ stages:
 
   - stage: Update_Helm_Values
     displayName: "Update Helm Values for GitOps"
-    dependsOn: Build_and_Push_Images # This ensures images are built before attempting to update manifest
+    dependsOn: Build_and_Push_Images
     jobs:
       - job: UpdateHelmValues
         displayName: "Update Helm Chart Values"
@@ -119,24 +119,23 @@ stages:
           # 'self' means checking out the repo that contains this pipeline YAML
           - checkout: self
             displayName: "Checkout Source Code (GitOps Repo)"
+            # Important: You typically need this for the initial clone.
+            # However, the git push part needs specific credentials.
+            # This 'checkout: self' already uses the pipeline's OAuth token for the initial clone.
 
           # Install yq (best practice for YAML manipulation)
-          # This step can be removed if yq is already reliably installed on your agent
           - script: |
               echo "Installing yq..."
-              # Use the appropriate installation method for your agent's OS (e.g., sudo apt install yq for Debian/Ubuntu)
-              # This specific wget command works for many Linux distributions.
               sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
               sudo chmod +x /usr/local/bin/yq
               yq --version
             displayName: "Install yq"
-            # Only run this on Linux agents to avoid errors on other OS
             condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
           - task: AzureCLI@2
             displayName: "Update Helm Values in GitOps Repo"
             inputs:
-              azureSubscription: "$(azureServiceConnection)" # Used for potential az commands if any, but git is primary here
+              azureSubscription: "$(azureServiceConnection)"
               scriptType: "bash"
               scriptLocation: "inlineScript"
               inlineScript: |
@@ -147,11 +146,16 @@ stages:
                 echo "🏷️ Image tag: $(imageTag)"
 
                 # Configure git with a non-interactive user for the commit
-                git config --global user.email "azure-devops@devopsjourney.com"
-                git config --global user.name "Azure DevOps Pipeline"
+                git config user.email "azure-devops@devopsjourney.com"
+                git config user.name "Azure DevOps Pipeline"
+                # IMPORTANT: Remove --global from git config here, as the Azure DevOps agent might
+                # clean up the repo-local config properly after the job.
+                # If you use --global, it persists across multiple runs within the same agent,
+                # which can sometimes lead to unexpected behavior if not reset.
+                # For this specific scenario where you check out the repo and operate within it,
+                # local config is sufficient.
 
                 # Navigate to the correct chart directory relative to your repo root
-                # Ensure 'devops-gitops/helm-charts/devops-app/' is the correct path to your Helm chart.
                 HELM_CHART_PATH="devops-gitops/helm-charts/devops-app"
                 VALUES_FILE="${HELM_CHART_PATH}/$(valuesFileSuffix)"
 
@@ -161,34 +165,18 @@ stages:
                 fi
 
                 echo "📝 Updating values file: $VALUES_FILE using yq"
-
-                # Update backend image tag using yq
-                # This assumes your values.yaml has a structure like:
-                # backend:
-                #   image:
-                #     tag: "old-tag"
                 yq e ".backend.image.tag = \"$(imageTag)\"" -i "$VALUES_FILE"
-
-                # Update frontend image tag using yq
-                # This assumes your values.yaml has a structure like:
-                # frontend:
-                #   image:
-                #     tag: "old-tag"
                 yq e ".frontend.image.tag = \"$(imageTag)\"" -i "$VALUES_FILE"
-
                 echo "✅ Values file updated. Current backend/frontend tags in $VALUES_FILE:"
                 yq e '.backend.image.tag' "$VALUES_FILE"
                 yq e '.frontend.image.tag' "$VALUES_FILE"
 
-                # Check if there are actual changes to commit
-                # 'git diff --quiet' returns 0 if no changes, non-zero if changes exist
                 if git diff --quiet "$VALUES_FILE"; then
                   echo "ℹ️ No changes detected in values file, skipping commit."
                 else
                   echo "📤 Committing changes to $(gitOpsTargetBranch) branch..."
                   git add "$VALUES_FILE"
                   
-                  # Create a meaningful commit message
                   git commit -m "🚀 Deploy $(targetEnvironment): Update images to $(imageTag)
 
                   Environment: $(targetEnvironment)
@@ -202,9 +190,11 @@ stages:
                   
                   ArgoCD App: $(argocdApp) will auto-sync this change"
                   
-                  # Push changes back to the GitOps target branch
-                  # This ensures the commit lands on the correct branch that ArgoCD is watching.
-                  git push origin HEAD:"$(gitOpsTargetBranch)"
+                  # Use the system-provided OAuth token for pushing
+                  # The token is available via the SYSTEM_ACCESSTOKEN environment variable
+                  # You need to enable "Allow scripts to access the OAuth token" in job options.
+                  git -c http.extraheader="AUTHORIZATION: Basic $(System.AccessToken)" push origin HEAD:"$(gitOpsTargetBranch)"
+                  
                   echo "✅ Changes pushed to repository!"
                   echo "🚀 ArgoCD will detect changes and deploy automatically"
                 fi
