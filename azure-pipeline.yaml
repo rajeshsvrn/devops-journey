@@ -1,5 +1,5 @@
 # azure-pipelines-gitops.yml
-# Based on your existing GitOps structure and incorporating fixes for Docker/ACR auth and yq for Helm values.
+# Based on your existing GitOps structure and incorporating fixes for Docker/ACR auth, yq for Helm values, and git push authentication.
 
 trigger:
   branches:
@@ -11,7 +11,7 @@ variables:
   acrName: "devopsjourney" # Added for `az acr login --name`
 
   # Your GitOps repository (assuming it's the same as your source code repo)
-  gitOpsRepoUrl: "https://github.com/rajeshsvrn/devops-journey.git"
+  gitOpsRepoUrl: "https://github.com/rajeshsvrn/devops-journey.git" # Note: If this is a GitHub repo, adjust auth for push (e.g., use PAT instead of System.AccessToken)
 
   # Environment-specific variables - determine image tag, namespace, ArgoCD app, and values file
   ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:
@@ -114,14 +114,13 @@ stages:
         displayName: "Update Helm Chart Values"
         pool:
           name: "devopsjourneys"
+        enableOAuth: true # Enables scripts to access the OAuth token (System.AccessToken)
         steps:
           # Checkout the GitOps repository (which is your current repo)
           # 'self' means checking out the repo that contains this pipeline YAML
           - checkout: self
             displayName: "Checkout Source Code (GitOps Repo)"
-            # Important: You typically need this for the initial clone.
-            # However, the git push part needs specific credentials.
-            # This 'checkout: self' already uses the pipeline's OAuth token for the initial clone.
+            persistCredentials: true # Persist credentials for subsequent git operations like push
 
           # Install yq (best practice for YAML manipulation)
           - script: |
@@ -148,12 +147,6 @@ stages:
                 # Configure git with a non-interactive user for the commit
                 git config user.email "azure-devops@devopsjourney.com"
                 git config user.name "Azure DevOps Pipeline"
-                # IMPORTANT: Remove --global from git config here, as the Azure DevOps agent might
-                # clean up the repo-local config properly after the job.
-                # If you use --global, it persists across multiple runs within the same agent,
-                # which can sometimes lead to unexpected behavior if not reset.
-                # For this specific scenario where you check out the repo and operate within it,
-                # local config is sufficient.
 
                 # Navigate to the correct chart directory relative to your repo root
                 HELM_CHART_PATH="devops-gitops/helm-charts/devops-app"
@@ -190,10 +183,8 @@ stages:
                   
                   ArgoCD App: $(argocdApp) will auto-sync this change"
                   
-                  # Use the system-provided OAuth token for pushing
-                  # The token is available via the SYSTEM_ACCESSTOKEN environment variable
-                  # You need to enable "Allow scripts to access the OAuth token" in job options.
-                  git -c http.extraheader="AUTHORIZATION: Basic $(System.AccessToken)" push origin HEAD:"$(gitOpsTargetBranch)"
+                  # Push using the system-provided OAuth token with correct Bearer auth
+                  git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:"$(gitOpsTargetBranch)"
                   
                   echo "✅ Changes pushed to repository!"
                   echo "🚀 ArgoCD will detect changes and deploy automatically"
