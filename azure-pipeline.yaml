@@ -1,5 +1,5 @@
 # azure-pipelines-gitops.yml
-# Based on your existing GitOps structure and incorporating fixes for Docker/ACR auth, yq for Helm values, and git push authentication.
+# Based on your existing GitOps structure and incorporating fixes for Docker/ACR auth, yq for Helm values, and git push with PR automation for branch protection.
 
 trigger:
   branches:
@@ -119,7 +119,7 @@ stages:
           # 'self' means checking out the repo that contains this pipeline YAML
           - checkout: self
             displayName: "Checkout Source Code (GitOps Repo)"
-            persistCredentials: true # Persist credentials for subsequent git operations like push
+            persistCredentials: true # Persist credentials for subsequent git operations
 
           # Install yq (best practice for YAML manipulation)
           - script: |
@@ -131,7 +131,7 @@ stages:
             condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
           - task: AzureCLI@2
-            displayName: "Update Helm Values in GitOps Repo"
+            displayName: "Update Helm Values and Create PR"
             inputs:
               azureSubscription: "$(azureServiceConnection)"
               scriptType: "bash"
@@ -143,11 +143,15 @@ stages:
                 echo "🎯 Target ArgoCD app: $(argocdApp)"
                 echo "🏷️ Image tag: $(imageTag)"
 
-                # Configure git with a non-interactive user for the commit
+                # Configure git
                 git config user.email "azure-devops@devopsjourney.com"
                 git config user.name "Azure DevOps Pipeline"
 
-                # Navigate to the correct chart directory relative to your repo root
+                # Create a new feature branch
+                FEATURE_BRANCH="feature/helm-update-$(imageTag)"
+                git checkout -b "$FEATURE_BRANCH"
+
+                # Update values file
                 HELM_CHART_PATH="devops-gitops/helm-charts/devops-app"
                 VALUES_FILE="${HELM_CHART_PATH}/$(valuesFileSuffix)"
 
@@ -166,7 +170,7 @@ stages:
                 if git diff --quiet "$VALUES_FILE"; then
                   echo "ℹ️ No changes detected in values file, skipping commit."
                 else
-                  echo "📤 Committing changes to $(gitOpsTargetBranch) branch..."
+                  echo "📤 Committing changes to feature branch: $FEATURE_BRANCH"
                   git add "$VALUES_FILE"
                   
                   git commit -m "🚀 Deploy $(targetEnvironment): Update images to $(imageTag)
@@ -182,11 +186,21 @@ stages:
                   
                   ArgoCD App: $(argocdApp) will auto-sync this change"
                   
-                  # Push using persisted credentials from checkout
-                  git push origin HEAD:"$(gitOpsTargetBranch)"
+                  # Push to feature branch (not protected)
+                  git push origin "$FEATURE_BRANCH"
                   
-                  echo "✅ Changes pushed to repository!"
-                  echo "🚀 ArgoCD will detect changes and deploy automatically"
+                  echo "✅ Changes pushed to $FEATURE_BRANCH!"
+
+                  # Create PR to target branch
+                  echo "📥 Creating pull request from $FEATURE_BRANCH to $(gitOpsTargetBranch)"
+                  az repos pr create --repository "devopsjourney" \
+                    --source-branch "$FEATURE_BRANCH" \
+                    --target-branch "$(gitOpsTargetBranch)" \
+                    --title "Automated Helm Update for $(targetEnvironment) - Image Tag: $(imageTag)" \
+                    --description "Auto-generated PR for GitOps deployment. Updates image tags to $(imageTag)." \
+                    --auto-complete true  # Optional: Auto-merge if policies allow
+
+                  echo "✅ PR created! ArgoCD will sync once merged."
                 fi
 
   - stage: Monitor_ArgoCD_Sync_And_Health
