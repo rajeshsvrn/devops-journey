@@ -39,7 +39,7 @@ stages:
       - job: BuildImages
         displayName: "Build Application Images"
         pool:
-          name: "devopsjourney1"
+          name: "devopsjourneys"
         steps:
           - task: AzureCLI@2
             displayName: "Build and Push Backend Image"
@@ -99,7 +99,7 @@ stages:
       - job: UpdateHelmValues
         displayName: "Update Helm Chart Values"
         pool:
-          name: "devopsjourney1"
+          name: "devopsjourneys"
         steps:
           - task: AzureCLI@2
             displayName: "Update Helm Values in GitOps Repo"
@@ -181,7 +181,7 @@ stages:
       - job: TriggerSync
         displayName: "Notify ArgoCD"
         pool:
-          name: "devopsjourney1"
+          name: "devopsjourneys"
         steps:
           - task: AzureCLI@2
             displayName: "Notify ArgoCD and Wait for Sync"
