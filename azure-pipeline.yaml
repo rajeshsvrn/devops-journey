@@ -1,5 +1,5 @@
 # azure-pipelines-gitops.yml
-# Based on your existing GitOps structure and incorporating fixes for Docker/ACR auth, yq for Helm values, and git push with PR automation for branch protection.
+# Based on your existing GitOps structure and incorporating fixes for Docker/ACR auth, yq for Helm values, and PR creation via REST API to avoid CLI auth issues.
 
 trigger:
   branches:
@@ -119,7 +119,7 @@ stages:
           # 'self' means checking out the repo that contains this pipeline YAML
           - checkout: self
             displayName: "Checkout Source Code (GitOps Repo)"
-            persistCredentials: true # Persist credentials for subsequent git operations
+            persistCredentials: true  # Persist credentials for subsequent git operations
 
           # Install yq (best practice for YAML manipulation)
           - script: |
@@ -130,8 +130,15 @@ stages:
             displayName: "Install yq"
             condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
+          # Map System.AccessToken to an environment variable for script access
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: 'echo "##vso[task.setvariable variable=SYSTEM_ACCESSTOKEN;issecret=true]$(System.AccessToken)"'
+            displayName: 'Expose System.AccessToken'
+
           - task: AzureCLI@2
-            displayName: "Update Helm Values and Create PR"
+            displayName: "Update Helm Values and Create PR via API"
             inputs:
               azureSubscription: "$(azureServiceConnection)"
               scriptType: "bash"
@@ -191,14 +198,31 @@ stages:
                   
                   echo "✅ Changes pushed to $FEATURE_BRANCH!"
 
-                  # Create PR to target branch
-                  echo "📥 Creating pull request from $FEATURE_BRANCH to $(gitOpsTargetBranch)"
-                  az repos pr create --repository "devopsjourney" \
-                    --source-branch "$FEATURE_BRANCH" \
-                    --target-branch "$(gitOpsTargetBranch)" \
-                    --title "Automated Helm Update for $(targetEnvironment) - Image Tag: $(imageTag)" \
-                    --description "Auto-generated PR for GitOps deployment. Updates image tags to $(imageTag)." \
-                    --auto-complete true  # Optional: Auto-merge if policies allow
+                  # Create PR using Azure DevOps REST API
+                  echo "📥 Creating pull request from $FEATURE_BRANCH to $(gitOpsTargetBranch) via REST API"
+                  API_URL="https://dev.azure.com/devopscult/devopsjourney/_apis/git/repositories/devopsjourney/pullrequests?api-version=7.0"
+                  PR_BODY=$(jq -n --arg title "Automated Helm Update for $(targetEnvironment) - Image Tag: $(imageTag)" \
+                                 --arg desc "Auto-generated PR for GitOps deployment. Updates image tags to $(imageTag)." \
+                                 --arg source "$FEATURE_BRANCH" \
+                                 --arg target "$(gitOpsTargetBranch)" \
+                                 '{
+                                    title: $title,
+                                    description: $desc,
+                                    sourceRefName: "refs/heads/\($source)",
+                                    targetRefName: "refs/heads/\($target)",
+                                    isDraft: false
+                                  }')
+
+                  RESPONSE=$(curl -s -X POST -H "Authorization: Basic $(echo -n :$SYSTEM_ACCESSTOKEN | base64)" \
+                                  -H "Content-Type: application/json" \
+                                  -d "$PR_BODY" "$API_URL")
+
+                  if echo "$RESPONSE" | grep -q "pullRequestId"; then
+                    echo "✅ PR created successfully!"
+                  else
+                    echo "❌ Failed to create PR: $RESPONSE"
+                    exit 1
+                  fi
 
                   echo "✅ PR created! ArgoCD will sync once merged."
                 fi
