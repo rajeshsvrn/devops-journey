@@ -11,7 +11,7 @@ variables:
   acrName: "devopsjourney" # Added for `az acr login --name`
 
   # Your GitOps repository (assuming it's the same as your source code repo)
-  gitOpsRepoUrl: "https://github.com/rajeshsvrn/devops-journey.git" # Note: If this is a GitHub repo, adjust auth for push (e.g., use PAT instead of System.AccessToken)
+  gitOpsRepoUrl: "https://github.com/rajeshsvrn/devops-journey.git" # Note: If this is a GitHub repo, adjust auth for push (e.g., use PAT instead of persisted credentials)
 
   # Environment-specific variables - determine image tag, namespace, ArgoCD app, and values file
   ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:
@@ -114,7 +114,6 @@ stages:
         displayName: "Update Helm Chart Values"
         pool:
           name: "devopsjourneys"
-        enableOAuth: true # Enables scripts to access the OAuth token (System.AccessToken)
         steps:
           # Checkout the GitOps repository (which is your current repo)
           # 'self' means checking out the repo that contains this pipeline YAML
@@ -183,8 +182,8 @@ stages:
                   
                   ArgoCD App: $(argocdApp) will auto-sync this change"
                   
-                  # Push using the system-provided OAuth token with correct Bearer auth
-                  git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin HEAD:"$(gitOpsTargetBranch)"
+                  # Push using persisted credentials from checkout
+                  git push origin HEAD:"$(gitOpsTargetBranch)"
                   
                   echo "✅ Changes pushed to repository!"
                   echo "🚀 ArgoCD will detect changes and deploy automatically"
