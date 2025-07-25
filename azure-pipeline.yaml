@@ -9,28 +9,36 @@ variables:
   azureServiceConnection: "azure-federated-identity"
   containerRegistry: "devopsjourney.azurecr.io"
 
-  # Your existing GitOps repository (from the ArgoCD config)
+  # Your GitOps repository (assuming it's the same as your source code repo)
   gitOpsRepoUrl: "https://github.com/rajeshsvrn/devops-journey.git"
-  gitOpsRepoBranch: "HEAD" # As shown in ArgoCD config
+  gitOpsRepoBranch:
+    "main" # GitOps changes should typically go to the main branch if ArgoCD is watching main.
+    # If ArgoCD watches 'develop' for the 'development' app, use 'develop' here for that stage.
+    # For simplicity, if all environments sync from 'main' (e.g., Kustomize overlays in main),
+    # then push to main. If you have different branches for each env, adjust accordingly.
+    # Let's assume you push environment-specific changes back to the *source* branch for now.
 
   # Environment-specific variables
   ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:
     targetEnvironment: "development"
     namespace: "develop"
-    imageTag: "dev-$(Build.BuildNumber)"
-    argocdApp: "devops-app-develop" # From your argocd-apps
+    imageTag: "dev-$(Build.BuildNumber)" # Format: dev-YYYYMMDD.X
+    argocdApp: "devops-app-develop"
+    valuesFileSuffix: "values.yaml" # For develop, assumes values.yaml is the base
 
   ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/qa') }}:
     targetEnvironment: "qa"
     namespace: "qa"
-    imageTag: "qa-$(Build.BuildNumber)"
-    argocdApp: "devops-app-qa" # From your qa-application.yaml
+    imageTag: "qa-$(Build.BuildNumber)" # Format: qa-YYYYMMDD.X
+    argocdApp: "devops-app-qa"
+    valuesFileSuffix: "qa-values.yaml"
 
   ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
     targetEnvironment: "production"
     namespace: "production"
-    imageTag: "prod-$(Build.BuildNumber)"
+    imageTag: "prod-$(Build.BuildNumber)" # Format: prod-YYYYMMDD.X
     argocdApp: "devops-app-production"
+    valuesFileSuffix: "prod-values.yaml"
 
 stages:
   - stage: Build_and_Push_Images
@@ -39,8 +47,9 @@ stages:
       - job: BuildImages
         displayName: "Build Application Images"
         pool:
-          name: "devopsjourneys"
+          name: "devopsjourneys" # Ensure this agent pool name is correct and has Docker installed
         steps:
+          # Task for Backend Image
           - task: AzureCLI@2
             displayName: "Build and Push Backend Image"
             inputs:
@@ -48,25 +57,25 @@ stages:
               scriptType: "bash"
               scriptLocation: "inlineScript"
               inlineScript: |
-                echo "🔐 Azure AD federated authentication successful!"
                 echo "🏗️ Building backend image for $(targetEnvironment)"
                 echo "📦 Image tag: $(imageTag)"
 
-                # Login to Azure Container Registry
-                az acr login --name devopsjourney
+                # AzureCLI@2 handles ACR login automatically via the service connection
+                # No need for: az acr login --name devopsjourney
 
                 # Build and push backend image
-                echo "🔨 Building backend image..."
-                docker build -t $(containerRegistry)/devops-backend:$(imageTag) backend/
+                echo "🔨 Building backend image from ./backend directory..."
+                docker build -t $(containerRegistry)/devops-backend:$(imageTag) ./backend
                 docker push $(containerRegistry)/devops-backend:$(imageTag)
 
-                # Also tag as environment-latest for easy reference
+                # Also tag as environment-latest for easy reference (useful for quick local pulls)
                 docker tag $(containerRegistry)/devops-backend:$(imageTag) $(containerRegistry)/devops-backend:$(targetEnvironment)-latest
                 docker push $(containerRegistry)/devops-backend:$(targetEnvironment)-latest
 
                 echo "✅ Backend image built and pushed!"
                 echo "Image: $(containerRegistry)/devops-backend:$(imageTag)"
 
+          # Task for Frontend Image
           - task: AzureCLI@2
             displayName: "Build and Push Frontend Image"
             inputs:
@@ -74,15 +83,8 @@ stages:
               scriptType: "bash"
               scriptLocation: "inlineScript"
               inlineScript: |
-
-                echo "🔎  Current user      : $(whoami)"
-                echo "🔎  Effective UID/GID : $(id -u) / $(id -g)"
-
-
-                echo "🔨 Building frontend image..."
-
-                # Build and push frontend image
-                docker build -t $(containerRegistry)/devops-frontend:$(imageTag) frontend/
+                echo "🔨 Building frontend image from ./frontend directory..."
+                docker build -t $(containerRegistry)/devops-frontend:$(imageTag) ./frontend
                 docker push $(containerRegistry)/devops-frontend:$(imageTag)
 
                 # Also tag as environment-latest
@@ -94,97 +96,108 @@ stages:
 
   - stage: Update_Helm_Values
     displayName: "Update Helm Values for GitOps"
-    dependsOn: Build_and_Push_Images
+    dependsOn: Build_and_Push_Images # This ensures images are built before attempting to update manifest
     jobs:
       - job: UpdateHelmValues
         displayName: "Update Helm Chart Values"
         pool:
           name: "devopsjourneys"
         steps:
+          # Checkout the GitOps repository (which is your current repo)
+          - checkout: self # This checks out the current repo, ensuring latest source code and manifests are available.
+            displayName: "Checkout Source Code (GitOps Repo)"
+
+          # Install yq (best practice for YAML manipulation)
+          - script: |
+              echo "Installing yq..."
+              # You might need to adjust this based on your agent's OS (e.g., apt install for Debian/Ubuntu)
+              # This is a common way to get it on a fresh Linux VM
+              sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+              sudo chmod +x /usr/local/bin/yq
+              yq --version
+            displayName: "Install yq"
+            condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux')) # Only install on Linux agents
+            # Add a condition for Windows if needed, or if yq is already on agent, remove this step.
+
           - task: AzureCLI@2
             displayName: "Update Helm Values in GitOps Repo"
             inputs:
-              azureSubscription: "$(azureServiceConnection)"
+              azureSubscription: "$(azureServiceConnection)" # Used for potential az commands if any, but git is primary here
               scriptType: "bash"
               scriptLocation: "inlineScript"
               inlineScript: |
+                set -e # Ensure script exits on first failure
+
                 echo "📝 Updating Helm values for $(targetEnvironment)"
                 echo "🎯 Target ArgoCD app: $(argocdApp)"
                 echo "🏷️ Image tag: $(imageTag)"
 
-                # Configure git
+                # Configure git with a non-interactive user
                 git config --global user.email "azure-devops@devopsjourney.com"
                 git config --global user.name "Azure DevOps Pipeline"
 
-                # Clone the repository (same repo where your code is)
-                echo "📥 Cloning repository..."
-                git clone $(gitOpsRepoUrl) gitops-working
-                cd gitops-working
+                # Navigate to the correct chart directory relative to your repo root
+                # Assuming your helm chart is at ./devops-gitops/helm-charts/devops-app/
+                HELM_CHART_PATH="./devops-gitops/helm-charts/devops-app"
+                VALUES_FILE="${HELM_CHART_PATH}/$(valuesFileSuffix)"
 
-                # Update the appropriate Helm values file based on environment
-                if [ "$(targetEnvironment)" = "development" ]; then
-                  VALUES_FILE="devops-gitops/helm-charts/devops-app/values.yaml"
-                elif [ "$(targetEnvironment)" = "qa" ]; then
-                  VALUES_FILE="devops-gitops/helm-charts/devops-app/qa-values.yaml"
-                else
-                  VALUES_FILE="devops-gitops/helm-charts/devops-app/prod-values.yaml"
+                if [ ! -f "$VALUES_FILE" ]; then
+                  echo "ERROR: Values file not found: $VALUES_FILE"
+                  exit 1
                 fi
 
-                echo "📝 Updating values file: $VALUES_FILE"
+                echo "📝 Updating values file: $VALUES_FILE using yq"
 
                 # Update backend image tag
-                sed -i "s|tag: \"v[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
-                sed -i "s|tag: \"dev-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
-                sed -i "s|tag: \"qa-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
-                sed -i "s|tag: \"prod-[0-9]*\"|tag: \"$(imageTag)\"|g" $VALUES_FILE
+                yq e ".backend.image.tag = \"$(imageTag)\"" -i "$VALUES_FILE"
+                # Update frontend image tag
+                yq e ".frontend.image.tag = \"$(imageTag)\"" -i "$VALUES_FILE"
 
-                # More specific updates for backend and frontend sections
-                # Update backend image tag
-                sed -i "/backend:/,/frontend:/ { /image:/,/pullPolicy:/ s|tag: \".*\"|tag: \"$(imageTag)\"|g }" $VALUES_FILE
-
-                # Update frontend image tag  
-                sed -i "/frontend:/,/mongodb:/ { /image:/,/pullPolicy:/ s|tag: \".*\"|tag: \"$(imageTag)\"|g }" $VALUES_FILE
-
-                echo "✅ Values file updated. Current backend/frontend sections:"
-                grep -A 10 "backend:" $VALUES_FILE | head -15
-                grep -A 10 "frontend:" $VALUES_FILE | head -15
+                echo "✅ Values file updated. Current backend/frontend tags in $VALUES_FILE:"
+                yq e '.backend.image.tag' "$VALUES_FILE"
+                yq e '.frontend.image.tag' "$VALUES_FILE"
 
                 # Check if there are actually changes to commit
-                if git diff --quiet; then
-                  echo "ℹ️ No changes detected in values file"
+                # Use 'git diff' relative to the checkout directory
+                if git diff --quiet $VALUES_FILE; then
+                  echo "ℹ️ No changes detected in values file, skipping commit."
                 else
-                  echo "📤 Committing changes..."
-                  git add $VALUES_FILE
-                  
+                  echo "📤 Committing changes to $(Build.SourceBranch)..."
+                  git add "$VALUES_FILE"
+
                   git commit -m "🚀 Deploy $(targetEnvironment): Update images to $(imageTag)
 
                   Environment: $(targetEnvironment)
                   Namespace: $(namespace)
                   Backend Image: $(containerRegistry)/devops-backend:$(imageTag)
                   Frontend Image: $(containerRegistry)/devops-frontend:$(imageTag)
-                  
+
                   Pipeline: $(Build.BuildNumber)
                   Branch: $(Build.SourceBranch)
                   Triggered by: $(Build.RequestedFor)
-                  
+
                   ArgoCD App: $(argocdApp) will auto-sync this change"
-                  
-                  git push origin HEAD
+
+                  # Push changes back to the original branch (e.g., 'develop' or 'main')
+                  # Azure DevOps pipeline typically clones in detached HEAD state,
+                  # so 'git push origin HEAD' might push to the default branch for the repo.
+                  # It's safer to explicitly push to the source branch.
+                  git push origin HEAD:"$(Build.SourceBranchName)"
                   echo "✅ Changes pushed to repository!"
                   echo "🚀 ArgoCD will detect changes and deploy automatically"
                 fi
 
-  - stage: Trigger_ArgoCD_Sync
-    displayName: "Trigger ArgoCD Sync (Optional)"
+  - stage: Monitor_ArgoCD_Sync_And_Health
+    displayName: "Monitor ArgoCD Sync & Health"
     dependsOn: Update_Helm_Values
     jobs:
-      - job: TriggerSync
-        displayName: "Notify ArgoCD"
+      - job: MonitorSync
+        displayName: "Monitor ArgoCD Deployment"
         pool:
           name: "devopsjourneys"
         steps:
           - task: AzureCLI@2
-            displayName: "Notify ArgoCD and Wait for Sync"
+            displayName: "Deployment Notification"
             inputs:
               azureSubscription: "$(azureServiceConnection)"
               scriptType: "bash"
@@ -197,32 +210,31 @@ stages:
                 echo "  Backend: $(containerRegistry)/devops-backend:$(imageTag)"
                 echo "  Frontend: $(containerRegistry)/devops-frontend:$(imageTag)"
 
-                # Optional: Call ArgoCD API to trigger immediate sync
-                # (Requires ArgoCD API access and token)
-                # argocd app sync $(argocdApp) --auth-token $ARGOCD_TOKEN
-
-                echo "⏰ ArgoCD will sync within 3 minutes (default sync interval)"
-                echo "🔍 You can monitor the deployment at:"
+                # Optional: Instructions for manual ArgoCD sync or monitoring
+                echo "⏰ ArgoCD will sync within its configured interval (default 3 minutes)."
+                echo "🔍 You can monitor the deployment status in the ArgoCD UI or via 'argocd' CLI:"
 
                 if [ "$(targetEnvironment)" = "development" ]; then
                   echo "🌐 Development: https://devraj.duckdns.org"
-                elif [ "$(targetEnvironment)" = "qa" ]; then  
+                  echo "ArgoCD UI: YOUR_ARGOCD_UI_URL_FOR_DEVELOPMENT_APP" # Replace with actual URL
+                elif [ "$(targetEnvironment)" = "qa" ]; then
                   echo "🌐 QA: https://qaraj.duckdns.org"
+                  echo "ArgoCD UI: YOUR_ARGOCD_UI_URL_FOR_QA_APP" # Replace with actual URL
                 elif [ "$(targetEnvironment)" = "production" ]; then
                   echo "🌐 Production: https://prodraj.duckdns.org"
+                  echo "ArgoCD UI: YOUR_ARGOCD_UI_URL_FOR_PRODUCTION_APP" # Replace with actual URL
                 fi
 
                 echo ""
-                echo "🎉 GitOps Deployment Completed Successfully!"
-                echo "✅ No Kubernetes API access required"
-                echo "✅ No kubectl commands needed"
-                echo "✅ ArgoCD handles all cluster operations"
-                echo "✅ Git is the single source of truth"
-                echo "✅ Full audit trail in Git history"
+                echo "🎉 GitOps Deployment Initiated Successfully!"
+                echo "✅ No direct Kubernetes API access from pipeline required for deployment."
+                echo "✅ ArgoCD handles all cluster operations."
+                echo "✅ Git is the single source of truth."
+                echo "✅ Full audit trail in Git history."
                 echo ""
                 echo "📋 Deployment Summary:"
                 echo "  Environment: $(targetEnvironment)"
-                echo "  Namespace: $(namespace)"  
+                echo "  Namespace: $(namespace)"
                 echo "  ArgoCD App: $(argocdApp)"
                 echo "  Image Tag: $(imageTag)"
                 echo "  Pipeline: $(Build.BuildNumber)"
